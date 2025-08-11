@@ -1,6 +1,6 @@
 # Mina zkApp: Authenticity Zkapp
 
-This template uses TypeScript.
+This ZkApp verifies an image authenticity proof and stores metadata on chain on Mina in a token account.
 
 ## How to build
 
