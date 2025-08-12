@@ -1,13 +1,12 @@
 import {
-  Field,
   PublicKey,
   method,
-  Struct,
   TokenContract,
   UInt64,
   AccountUpdate,
   AccountUpdateForest,
   Bool,
+  Poseidon,
 } from 'o1js';
 
 import { AuthenticityProof, AuthenticityInputs } from './AuthenticityProof.js';
@@ -34,7 +33,9 @@ export class AuthenticityZkApp extends TokenContract {
     inputs: AuthenticityInputs
   ) {
     // Assert the public inputs are valid
-    proof.publicInput.committment.assertEquals(inputs.committment);
+    Poseidon.hash(proof.publicInput.commitment.toFields()).assertEquals(
+      Poseidon.hash(inputs.commitment.toFields())
+    );
 
     // Verify the provided proof using the AuthenticityProgram
     proof.verify();
@@ -53,7 +54,7 @@ export class AuthenticityZkApp extends TokenContract {
     // Set the on-chain state of the token account
     update.body.update.appState[0] = {
       isSome: Bool(true),
-      value: inputs.committment,
+      value: Poseidon.hash(inputs.commitment.toFields()),
     };
     update.body.update.appState[1] = {
       isSome: Bool(true),
