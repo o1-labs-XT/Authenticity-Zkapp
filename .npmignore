@@ -1,14 +1,50 @@
-# Source files
-src
+# Source TypeScript files (only distribute built JS)
+src/
+*.ts
+!*.d.ts
 
-node_modules
-coverage
+# Test files
+**/*.test.js
+**/*.test.d.ts
+
+# Development directories
+node_modules/
+coverage/
+cache/
+scripts/
+keys/
+
+# Build artifacts
+cache.json
+
+# Config files
+.eslintrc.*
+.prettierrc.*
+babel.config.*
+jest.config.*
+tsconfig.json
+config.json
+
+# Documentation (except README)
+*.md
+!README.md
+!LICENSE
 
 # Editor
-.vscode
+.vscode/
+.idea/
 
 # System
 .DS_Store
+*.log
+*.tmp
 
-# Never reveal your keys!
-keys
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.github/
+.gitignore

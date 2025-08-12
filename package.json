@@ -1,27 +1,42 @@
 {
   "name": "authenticity-zkapp",
   "version": "0.1.0",
-  "description": "",
+  "description": "Zero-knowledge proof system for verifying image authenticity on Mina blockchain",
   "author": "",
   "license": "Apache-2.0",
   "keywords": [
     "mina-zkapp",
     "mina-zk-app",
     "mina-dapp",
-    "zkapp"
+    "zkapp",
+    "zero-knowledge",
+    "image-verification",
+    "sha256",
+    "authenticity",
+    "zksnark"
   ],
   "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
+  "files": [
+    "build/src/**/*.js",
+    "build/src/**/*.d.ts",
+    "!build/src/**/*.test.js",
+    "!build/src/**/*.test.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp example/cat.png build/example/",
     "buildw": "tsc --watch",
     "coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "example": "npm run build && node build/example/prove-authenticity.js",
     "format": "prettier --write --ignore-unknown **/*",
     "test": "npm run build && find build/src -name '*.test.js' -exec node --test {} \\;",
     "testw": "npm run build && find build/src -name '*.test.js' -exec node --test --watch {} \\;",
     "lint": "npx eslint src/* --fix",
-    "clear-cache": "npx rimraf cache/* !cache/README.md && npx rimraf cache.json && echo \"Cache cleared successfully!\""
+    "clear-cache": "npx rimraf cache/* !cache/README.md && npx rimraf cache.json && echo \"Cache cleared successfully!\"",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.4",
@@ -32,7 +47,6 @@
     "eslint": "^8.7.0",
     "eslint-plugin-o1js": "^0.4.0",
     "prettier": "^2.3.2",
-    "ts-jest": "^29.2.4",
     "typescript": "^5.4.5"
   },
   "peerDependencies": {
