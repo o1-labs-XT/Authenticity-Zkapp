@@ -122,12 +122,7 @@ const storeTxn = await Mina.transaction(creatorAccount, async () => {
   // Fund the token account
   AccountUpdate.fundNewAccount(creatorAccount);
 
-  await zkApp.verifyAndStore(
-    tokenOwnerAccount,
-    creatorAccount,
-    proof,
-    publicInputs
-  );
+  await zkApp.verifyAndStore(tokenOwnerAccount, proof, publicInputs);
 });
 await storeTxn.prove();
 await storeTxn.sign([creatorKey, tokenOwnerKey]).send();
