@@ -36,7 +36,10 @@
     "testw": "npm run build && find build/src -name '*.test.js' -exec node --test --watch {} \\;",
     "lint": "npx eslint src/* --fix",
     "clear-cache": "npx rimraf cache/* !cache/README.md && npx rimraf cache.json && echo \"Cache cleared successfully!\"",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepublishOnly": "npm run build && npm run test",
+    "deploy:devnet": "npm run build && node build/src/deploy.js devnet",
+    "deploy:mainnet": "npm run build && node build/src/deploy.js mainnet",
+    "deploy:zeko": "npm run build && node build/src/deploy.js zeko"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.4",
@@ -54,5 +57,8 @@
   },
   "engines": {
     "node": ">=18.14.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.1"
   }
 }

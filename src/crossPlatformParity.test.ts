@@ -55,10 +55,10 @@ describe('Cross-Platform Parity Tests', () => {
         const inputUint8Array = new Uint8Array(inputBuffer);
         
         // Get commitment from Node.js implementation
-        const nodeCommitment = computeOnChainCommitment(inputBuffer);
+        const nodeCommitment = computeOnChainCommitment(inputBuffer).poseidon;
         
         // Get commitment from cross-platform implementation
-        const crossPlatformCommitment = await computeOnChainCommitmentCrossPlatform(inputUint8Array);
+        const crossPlatformCommitment = (await computeOnChainCommitmentCrossPlatform(inputUint8Array)).poseidon;
         
         // Verify they match
         assert.strictEqual(

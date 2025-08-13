@@ -11,6 +11,11 @@ coverage
 
 # Never commit keys to Git!
 keys
+.env
+.env.local
 
 # o1js cache
 cache
+
+# Deployment info
+deployments
