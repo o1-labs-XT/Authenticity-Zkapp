@@ -10,6 +10,9 @@ export {
   hashImageOffCircuit,
   prepareImageVerification,
   computeOnChainCommitment,
+  // Cross-platform versions for testing
+  hashImageOffCircuitCrossPlatform,
+  computeOnChainCommitmentCrossPlatform,
 };
 
 class Bytes32 extends Bytes(32) {}
@@ -332,8 +335,48 @@ function prepareImageVerification(imagePath: string) {
  * @returns The Poseidon hash of the SHA-256 digest as a Field
  */
 function computeOnChainCommitment(imageData: Buffer): Field {
-  // Compute SHA-256 hash
-  const sha256Hash = crypto.createHash('sha256').update(imageData).digest('hex');
+  // Compute SHA-256 hash using hashImageOffCircuit
+  const sha256Hash = hashImageOffCircuit(imageData);
+  
+  // Convert to Bytes32
+  const bytes32 = Bytes32.fromHex(sha256Hash);
+  
+  // Compute Poseidon hash of the bytes
+  return Poseidon.hash(bytes32.toFields());
+}
+
+/**
+ * Cross-platform version of hashImageOffCircuit that works in browsers and Node.js
+ * Should produce identical results to the Node.js crypto version
+ * @param imageData - The image data as a Uint8Array
+ * @returns Promise<string> - The SHA-256 hash as hex string
+ */
+async function hashImageOffCircuitCrossPlatform(imageData: Uint8Array): Promise<string> {
+  // Use Web Crypto API which is available in modern browsers and Node.js 15.7+
+  if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.subtle) {
+    // Ensure we have a proper ArrayBuffer (handle both ArrayBuffer and SharedArrayBuffer)
+    const buffer = imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength) as ArrayBuffer;
+    const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  
+  // Fallback to Node.js crypto for older Node.js versions
+  if (typeof crypto !== 'undefined' && crypto.createHash) {
+    return crypto.createHash('sha256').update(Buffer.from(imageData)).digest('hex');
+  }
+  
+  throw new Error('No SHA-256 implementation available in this environment');
+}
+
+/**
+ * Cross-platform version of computeOnChainCommitment
+ * @param imageData - The image data as a Uint8Array
+ * @returns Promise<Field> - The Poseidon hash of the SHA-256 digest
+ */
+async function computeOnChainCommitmentCrossPlatform(imageData: Uint8Array): Promise<Field> {
+  // Compute SHA-256 hash using cross-platform function
+  const sha256Hash = await hashImageOffCircuitCrossPlatform(imageData);
   
   // Convert to Bytes32
   const bytes32 = Bytes32.fromHex(sha256Hash);
