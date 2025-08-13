@@ -8,6 +8,70 @@ A zero-knowledge proof system for verifying image authenticity on the Mina block
 npm install authenticity-zkapp
 ```
 
+## Deployment
+
+### Prerequisites
+
+1. Install dependencies:
+   ```sh
+   npm install
+   ```
+
+2. Create a `.env` file with your private keys (see `.env.example`):
+   ```
+   # Devnet keys
+   DEVNET_PAYER_PRIVATE_KEY=EKE...  # Account that pays transaction fees
+   DEVNET_ZKAPP_PRIVATE_KEY=EKE...  # Deterministic zkApp deployment address
+
+   # Mainnet keys
+   MAINNET_PAYER_PRIVATE_KEY=EKE...
+   MAINNET_ZKAPP_PRIVATE_KEY=EKE...
+
+   # Zeko keys
+   ZEKO_PAYER_PRIVATE_KEY=EKE...
+   ZEKO_ZKAPP_PRIVATE_KEY=EKE...
+   ```
+
+### Deploy to a Network
+
+Deploy the AuthenticityZkApp contract:
+
+```sh
+# Deploy to devnet
+npm run deploy:devnet
+
+# Deploy to mainnet
+npm run deploy:mainnet
+
+# Deploy to zeko
+npm run deploy:zeko
+```
+
+The deployment script will:
+1. Compile the AuthenticityProgram (dependency)
+2. Compile the AuthenticityZkApp contract
+3. Deploy to the specified network
+4. Save deployment info to `deployments/[network]-deployment.json`
+
+### Deployment Output
+
+After successful deployment, you'll receive:
+- Transaction hash for tracking
+- zkApp address for contract interaction
+- Explorer link to view the deployment
+
+Example deployment info:
+```json
+{
+  "network": "devnet",
+  "zkAppAddress": "B62qj2zKtjxv1oaY4S9f5Noy3BKj7V3SWHX91u4vwuCDwyQVbsTeNF5",
+  "payerAddress": "B62qkifieqVmoequ7HrKisEPyFno14MP2fpAUnDYZ2krdMt7PbhtgG6",
+  "deployedAt": "2025-08-13T19:10:01.180Z",
+  "explorerUrl": "https://minascan.io/devnet/account/B62qj2zKtjxv1oaY4S9f5Noy3BKj7V3SWHX91u4vwuCDwyQVbsTeNF5",
+  "txHash": "5JvGN4pCvZDJpykvKHXzAkrbfe3q55GkZamN8qmYSgsnwtv8MSjD"
+}
+```
+
 ## Usage
 
 ### Run the Example Script
