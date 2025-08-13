@@ -20,7 +20,8 @@
     "allowSyntheticDefaultImports": true,
     "useDefineForClassFields": false, // ensure correct behaviour of class fields with decorators
     "importHelpers": true, // bundle optimization to reduce size
-    "baseUrl": "." // base directory for module resolution
+    "baseUrl": ".", // base directory for module resolution
+    "resolveJsonModule": true
   },
   "include": ["./src", "./example"]
 }
