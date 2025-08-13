@@ -28,11 +28,13 @@ export class AuthenticityZkApp extends TokenContract {
 
   @method async verifyAndStore(
     address: PublicKey, // Address of the new token account
-    creator: PublicKey, // Creator's public key
     proof: AuthenticityProof,
     inputs: AuthenticityInputs
   ) {
-    // Assert the public inputs are valid
+    // Check the inputs
+    const creator = proof.publicInput.publicKey;
+    inputs.publicKey.assertEquals(creator);
+    inputs.signature.assertEquals(proof.publicInput.signature);
     Poseidon.hash(proof.publicInput.commitment.toFields()).assertEquals(
       Poseidon.hash(inputs.commitment.toFields())
     );
