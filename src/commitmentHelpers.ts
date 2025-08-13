@@ -349,7 +349,7 @@ function prepareImageVerification(imagePath: string) {
  * @param imageData - The image data as a Buffer
  * @returns The Poseidon hash of the SHA-256 digest as a Field
  */
-function computeOnChainCommitment(imageData: Buffer): Field {
+function computeOnChainCommitment(imageData: Buffer) {
   // Compute SHA-256 hash using hashImageOffCircuit
   const sha256Hash = hashImageOffCircuit(imageData);
 
@@ -357,7 +357,10 @@ function computeOnChainCommitment(imageData: Buffer): Field {
   const bytes32 = Bytes32.fromHex(sha256Hash);
 
   // Compute Poseidon hash of the bytes
-  return Poseidon.hash(bytes32.toFields());
+  return {
+    sha256: sha256Hash,
+    poseidon: Poseidon.hash(bytes32.toFields()),
+  };
 }
 
 /**
@@ -397,9 +400,7 @@ async function hashImageOffCircuitCrossPlatform(
  * @param imageData - The image data as a Uint8Array
  * @returns Promise<Field> - The Poseidon hash of the SHA-256 digest
  */
-async function computeOnChainCommitmentCrossPlatform(
-  imageData: Uint8Array
-): Promise<Field> {
+async function computeOnChainCommitmentCrossPlatform(imageData: Uint8Array) {
   // Compute SHA-256 hash using cross-platform function
   const sha256Hash = await hashImageOffCircuitCrossPlatform(imageData);
 
@@ -407,5 +408,8 @@ async function computeOnChainCommitmentCrossPlatform(
   const bytes32 = Bytes32.fromHex(sha256Hash);
 
   // Compute Poseidon hash of the bytes
-  return Poseidon.hash(bytes32.toFields());
+  return {
+    sha256: sha256Hash,
+    poseidon: Poseidon.hash(bytes32.toFields()),
+  };
 }
