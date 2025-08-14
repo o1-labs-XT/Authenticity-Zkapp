@@ -18,6 +18,10 @@
   "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
+  "exports": {
+    ".": "./build/src/index.js",
+    "./browser": "./build/src/browser.js"
+  },
   "files": [
     "build/src/**/*.js",
     "build/src/**/*.d.ts",
