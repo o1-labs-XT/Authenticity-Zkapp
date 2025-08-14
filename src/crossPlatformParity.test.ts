@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import {
   hashImageOffCircuit,
   computeOnChainCommitment,
+} from './commitmentHelpers.js';
+import {
   hashImageOffCircuitCrossPlatform,
   computeOnChainCommitmentCrossPlatform,
-} from './commitmentHelpers.js';
+} from './browser.js';
 import testVectors from './testVectors.json' with { type: 'json' };
 
 describe('Cross-Platform Parity Tests', () => {
