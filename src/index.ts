@@ -17,6 +17,12 @@ export {
 } from './commitmentHelpers.js';
 
 export {
+  // Cross-platform versions for browser compatibility
+  hashImageOffCircuitCrossPlatform,
+  computeOnChainCommitmentCrossPlatform,
+} from './browser.js';
+
+export {
   // Smart contract
   AuthenticityZkApp,
 } from './AuthenticityZkApp.js';
