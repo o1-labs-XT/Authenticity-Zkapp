@@ -24,6 +24,8 @@ const creatorKey = Local.testAccounts[1].key;
 const creatorAccount = creatorKey.toPublicKey();
 const tokenOwnerKey = Local.testAccounts[2].key;
 const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
+const payerKey = Local.testAccounts[3].key;
+const payerAccount = payerKey.toPublicKey();
 
 console.log('✅ Local blockchain ready\n');
 
@@ -118,14 +120,14 @@ console.log('✅ Contract deployed\n');
 
 // Step 8: Verify and store image metadata on-chain
 console.log('8️⃣ Storing image authenticity on-chain...');
-const storeTxn = await Mina.transaction(creatorAccount, async () => {
+const storeTxn = await Mina.transaction(payerAccount, async () => {
   // Fund the token account
-  AccountUpdate.fundNewAccount(creatorAccount);
+  AccountUpdate.fundNewAccount(payerAccount);
 
   await zkApp.verifyAndStore(tokenOwnerAccount, proof, publicInputs);
 });
 await storeTxn.prove();
-await storeTxn.sign([creatorKey, tokenOwnerKey]).send();
+await storeTxn.sign([payerKey, tokenOwnerKey]).send();
 console.log('✅ Image authenticity stored on-chain\n');
 
 // Step 9: Verify the on-chain data

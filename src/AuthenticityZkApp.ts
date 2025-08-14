@@ -44,7 +44,6 @@ export class AuthenticityZkApp extends TokenContract {
 
     // Mint a token with the image metadata
     const tokenId = this.deriveTokenId();
-    AccountUpdate.createSigned(creator); // Authorize the creator
     const update = AccountUpdate.createSigned(address, tokenId);
     update.account.isNew.getAndRequireEquals().assertTrue();
 
