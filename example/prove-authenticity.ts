@@ -6,6 +6,7 @@ import {
   AuthenticityZkApp,
   hashImageOffCircuit,
   computeOnChainCommitment,
+  MintEvent,
 } from '../src/index.js';
 import { PrivateKey, Signature, Mina, AccountUpdate, Poseidon } from 'o1js';
 import fs from 'fs';
@@ -130,8 +131,44 @@ await storeTxn.prove();
 await storeTxn.sign([payerKey, tokenOwnerKey]).send();
 console.log('✅ Image authenticity stored on-chain\n');
 
-// Step 9: Verify the on-chain data
-console.log('9️⃣ Verifying on-chain data...');
+// Step 9: Verify mint event was emitted correctly
+console.log('9️⃣ Verifying mint event...');
+const events = await zkApp.fetchEvents();
+console.log(`   Found ${events.length} event(s)`);
+
+if (events.length > 0) {
+  const latestEvent = events[events.length - 1];
+  const eventData = latestEvent.event.data as unknown as MintEvent;
+
+  console.log('\n   Mint Event Data:');
+  console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
+  console.log(`   - Token Creator: ${eventData.tokenCreator.toBase58()}`);
+  console.log(`   - Commitment: ${eventData.authenticityCommitment}`);
+
+  // Verify event data matches expected values
+  console.log('\n   Mint Event Verification:');
+  console.log(
+    `   - Token address matches: ${eventData.tokenAddress
+      .equals(tokenOwnerAccount)
+      .toBoolean()}`
+  );
+  console.log(
+    `   - Creator matches: ${eventData.tokenCreator
+      .equals(creatorAccount)
+      .toBoolean()}`
+  );
+  console.log(
+    `   - Commitment matches: ${
+      eventData.authenticityCommitment.toString() ===
+      Poseidon.hash(verificationInputs.expectedHash.toFields()).toString()
+    }`
+  );
+} else {
+  console.log('   ❌ No events found!');
+}
+
+// Step 10: Verify the on-chain data
+console.log('\n🔟 Verifying on-chain data...');
 
 // Get the token ID
 const tokenId = zkApp.deriveTokenId();
@@ -162,7 +199,7 @@ console.log(
 );
 
 // Test the new helper function
-console.log('\n🧪 Testing computeOnChainCommitment helper:');
+console.log('\n1️⃣1️⃣ Testing computeOnChainCommitment helper:');
 const helperCommitment = computeOnChainCommitment(imageData);
 console.log(`   Helper result: ${helperCommitment.toString()}`);
 console.log(`   Stored value:  ${storedCommitment?.toString()}`);
