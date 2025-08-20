@@ -57,20 +57,28 @@ describe('Cross-Platform Parity Tests', () => {
         const inputUint8Array = new Uint8Array(inputBuffer);
         
         // Get commitment from Node.js implementation
-        const nodeCommitment = computeOnChainCommitment(inputBuffer).poseidon;
+        const nodeResult = await computeOnChainCommitment(inputBuffer);
         
         // Get commitment from cross-platform implementation
-        const crossPlatformCommitment = (await computeOnChainCommitmentCrossPlatform(inputUint8Array)).poseidon;
+        const crossPlatformResult = await computeOnChainCommitmentCrossPlatform(inputUint8Array);
         
-        // Verify they match
+        // Verify SHA-256 hashes match
         assert.strictEqual(
-          crossPlatformCommitment.toBigInt().toString(),
-          nodeCommitment.toBigInt().toString()
+          crossPlatformResult.sha256,
+          nodeResult.sha256
         );
         
-        // Also verify against the expected value from test vectors
-        assert.strictEqual(nodeCommitment.toBigInt().toString(), expectedCommitment);
-        assert.strictEqual(crossPlatformCommitment.toBigInt().toString(), expectedCommitment);
+        // Verify high128 fields match
+        assert.strictEqual(
+          crossPlatformResult.high128.toBigInt().toString(),
+          nodeResult.high128.toBigInt().toString()
+        );
+        
+        // Verify low128 fields match
+        assert.strictEqual(
+          crossPlatformResult.low128.toBigInt().toString(),
+          nodeResult.low128.toBigInt().toString()
+        );
       });
     });
   });

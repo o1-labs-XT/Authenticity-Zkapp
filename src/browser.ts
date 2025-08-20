@@ -3,7 +3,8 @@
  * Contains cross-platform functions that work in both browsers and Node.js
  */
 
-import { Bytes, Poseidon } from 'o1js';
+import { Bytes } from 'o1js';
+import { SHACommitment } from './AuthenticityZkApp.js';
 
 // Bytes32 class for this module
 class Bytes32 extends Bytes(32) {}
@@ -35,7 +36,7 @@ async function hashImageOffCircuitCrossPlatform(
 /**
  * Cross-platform version of computeOnChainCommitment
  * @param imageData - The image data as a Uint8Array
- * @returns Promise<{sha256: string, poseidon: Field}> - The SHA-256 hash and Poseidon commitment
+ * @returns Promise<{sha256: string, high128: Field, low128: Field}> - The SHA-256 hash and its two field representation
  */
 async function computeOnChainCommitmentCrossPlatform(imageData: Uint8Array) {
   // Compute SHA-256 hash using cross-platform function
@@ -44,10 +45,14 @@ async function computeOnChainCommitmentCrossPlatform(imageData: Uint8Array) {
   // Convert to Bytes32
   const bytes32 = Bytes32.fromHex(sha256Hash);
 
-  // Compute Poseidon hash of the bytes
+  // Create SHACommitment and get the two fields
+  const shaCommitment = new SHACommitment({ bytes: bytes32 });
+  const { high128, low128 } = shaCommitment.toTwoFields();
+
   return {
     sha256: sha256Hash,
-    poseidon: Poseidon.hash(bytes32.toFields()),
+    high128,
+    low128,
   };
 }
 

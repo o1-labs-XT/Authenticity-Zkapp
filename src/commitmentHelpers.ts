@@ -1,4 +1,4 @@
-import { UInt32, Bytes, Struct, Provable, Poseidon, Field } from 'o1js';
+import { UInt32, Bytes, Struct, Provable } from 'o1js';
 let crypto: typeof import('crypto') | undefined;
 let fs: typeof import('fs') | undefined;
 
@@ -344,19 +344,25 @@ function prepareImageVerification(imagePath: string) {
  * Computes the on-chain commitment value for an image
  * This is the exact value that will be stored in the smart contract
  * @param imageData - The image data as a Buffer
- * @returns The Poseidon hash of the SHA-256 digest as a Field
+ * @returns The SHA-256 hash and its two field representation
  */
-function computeOnChainCommitment(imageData: Buffer) {
+async function computeOnChainCommitment(imageData: Buffer) {
   // Compute SHA-256 hash using hashImageOffCircuit
   const sha256Hash = hashImageOffCircuit(imageData);
 
   // Convert to Bytes32
   const bytes32 = Bytes32.fromHex(sha256Hash);
 
-  // Compute Poseidon hash of the bytes
+  // import SHACommitment from AuthenticityZkApp here to avoid circular dependency
+  const { SHACommitment } = await import('./AuthenticityZkApp.js');
+
+  // Create SHACommitment and get the two fields
+  const shaCommitment = new SHACommitment({ bytes: bytes32 });
+  const { high128, low128 } = shaCommitment.toTwoFields();
+
   return {
     sha256: sha256Hash,
-    poseidon: Poseidon.hash(bytes32.toFields()),
+    high128,
+    low128,
   };
 }
-

@@ -4,10 +4,11 @@ import {
   FinalRoundInputs,
   prepareImageVerification,
   AuthenticityZkApp,
+  SHACommitment,
   hashImageOffCircuit,
   computeOnChainCommitment,
 } from '../src/index.js';
-import { PrivateKey, Signature, Mina, AccountUpdate, Poseidon } from 'o1js';
+import { PrivateKey, Signature, Mina, AccountUpdate } from 'o1js';
 import fs from 'fs';
 
 console.log('🐱 Authenticity zkApp Example\n');
@@ -139,15 +140,27 @@ console.log(`🪙 Token ID: ${tokenId.toString()}`);
 
 // Check the token account state
 const tokenAccount = Mina.getAccount(tokenOwnerAccount, tokenId);
-const storedCommitment = tokenAccount.zkapp?.appState[0];
-const storedCreatorX = tokenAccount.zkapp?.appState[1];
-const storedCreatorIsOdd = tokenAccount.zkapp?.appState[2];
+const storedHigh128 = tokenAccount.zkapp?.appState[1];
+const storedLow128 = tokenAccount.zkapp?.appState[2];
+const storedCreatorX = tokenAccount.zkapp?.appState[3];
+const storedCreatorIsOdd = tokenAccount.zkapp?.appState[4];
+
+// Reconstruct the SHA commitment from stored fields
+const shaCommitment = new SHACommitment({
+  bytes: verificationInputs.expectedHash,
+});
+const { high128: expectedHigh, low128: expectedLow } =
+  shaCommitment.toTwoFields();
 
 console.log('\n📊 On-chain verification results:');
 console.log(
-  `   Stored commitment matches: ${
-    storedCommitment?.toString() ===
-    Poseidon.hash(verificationInputs.expectedHash.toFields()).toString()
+  `   Stored high128 matches: ${
+    storedHigh128?.toString() === expectedHigh.toString()
+  }`
+);
+console.log(
+  `   Stored low128 matches: ${
+    storedLow128?.toString() === expectedLow.toString()
   }`
 );
 console.log(
@@ -161,14 +174,32 @@ console.log(
   }`
 );
 
-// Test the new helper function
+// Verify we can reconstruct the original hash
+if (storedHigh128 && storedLow128) {
+  const reconstructedCommitment = SHACommitment.fromTwoFields(
+    storedHigh128,
+    storedLow128
+  );
+  console.log('\n🔍 Reconstructed commitment verification:');
+  console.log(`   Original SHA-256: ${imageHash}`);
+  console.log(`   Reconstructed:    ${reconstructedCommitment.toHex()}`);
+  console.log(`   Matches: ${reconstructedCommitment.toHex() === imageHash}`);
+}
+
+// Test the helper function with the new storage format
 console.log('\n🧪 Testing computeOnChainCommitment helper:');
-const helperCommitment = computeOnChainCommitment(imageData);
-console.log(`   Helper result: ${helperCommitment.toString()}`);
-console.log(`   Stored value:  ${storedCommitment?.toString()}`);
+const helperResult = await computeOnChainCommitment(imageData);
+console.log(`   SHA-256: ${helperResult.sha256}`);
+console.log(`   High128: ${helperResult.high128.toString()}`);
+console.log(`   Low128:  ${helperResult.low128.toString()}`);
 console.log(
-  `   Helper matches stored value: ${
-    helperCommitment.toString() === storedCommitment?.toString()
+  `   High128 matches stored: ${
+    helperResult.high128.toString() === storedHigh128?.toString()
+  }`
+);
+console.log(
+  `   Low128 matches stored: ${
+    helperResult.low128.toString() === storedLow128?.toString()
   }`
 );
 

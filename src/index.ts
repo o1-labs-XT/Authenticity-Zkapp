@@ -23,6 +23,7 @@ export {
 } from './browser.js';
 
 export {
-  // Smart contract
+  // Smart contract and types
   AuthenticityZkApp,
+  SHACommitment,
 } from './AuthenticityZkApp.js';
