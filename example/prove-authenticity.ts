@@ -6,6 +6,9 @@ import {
   AuthenticityZkApp,
   hashImageOffCircuit,
   computeOnChainCommitment,
+  generateECKeyPair,
+  Ecdsa,
+  Secp256r1,
 } from '../src/index.js';
 import { PrivateKey, Signature, Mina, AccountUpdate, Poseidon } from 'o1js';
 import fs from 'fs';
@@ -20,13 +23,13 @@ Mina.setActiveInstance(Local);
 // Create test accounts
 const deployerKey = Local.testAccounts[0].key;
 const deployerAccount = deployerKey.toPublicKey();
-const creatorKey = Local.testAccounts[1].key;
-const creatorAccount = creatorKey.toPublicKey();
 const tokenOwnerKey = Local.testAccounts[2].key;
 const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
 const payerKey = Local.testAccounts[3].key;
 const payerAccount = payerKey.toPublicKey();
-
+const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+const creatorPublicKey = Secp256r1.fromHex(publicKeyHex);
+const creatorKey = Secp256r1.Scalar.from(privateKeyBigInt);
 console.log('✅ Local blockchain ready\n');
 
 // Step 2: Load the cat image
@@ -55,16 +58,17 @@ console.log('4️⃣ Preparing image verification inputs...');
 const verificationInputs = prepareImageVerification(imagePath);
 
 // Create signature to prove ownership
-const signature = Signature.create(
-  creatorKey,
-  verificationInputs.expectedHash.toFields()
+
+const signature = Ecdsa.signHash(
+  verificationInputs.expectedHash,
+  creatorKey.toBigInt()
 );
 
 // Create public and private inputs
 const publicInputs = new AuthenticityInputs({
   commitment: verificationInputs.expectedHash,
   signature,
-  publicKey: creatorAccount,
+  publicKey: creatorPublicKey,
 });
 
 const privateInputs = new FinalRoundInputs({
@@ -140,8 +144,13 @@ console.log(`🪙 Token ID: ${tokenId.toString()}`);
 // Check the token account state
 const tokenAccount = Mina.getAccount(tokenOwnerAccount, tokenId);
 const storedCommitment = tokenAccount.zkapp?.appState[0];
-const storedCreatorX = tokenAccount.zkapp?.appState[1];
-const storedCreatorIsOdd = tokenAccount.zkapp?.appState[2];
+const storedCreatorX1 = tokenAccount.zkapp?.appState[1];
+const storedCreatorX2 = tokenAccount.zkapp?.appState[2];
+const storedCreatorX3 = tokenAccount.zkapp?.appState[3];
+
+const storedCreatorY1 = tokenAccount.zkapp?.appState[4];
+const storedCreatorY2 = tokenAccount.zkapp?.appState[5];
+const storedCreatorY3 = tokenAccount.zkapp?.appState[6];
 
 console.log('\n📊 On-chain verification results:');
 console.log(
@@ -151,13 +160,33 @@ console.log(
   }`
 );
 console.log(
-  `   Creator public key X matches: ${
-    storedCreatorX?.toString() === creatorAccount.x.toString()
+  `   Creator public key X1 matches: ${
+    storedCreatorX1?.toString() === creatorPublicKey.x.toString()
   }`
 );
 console.log(
-  `   Creator public key isOdd matches: ${
-    storedCreatorIsOdd?.toString() === creatorAccount.isOdd.toField().toString()
+  `   Creator public key X2 matches: ${
+    storedCreatorX2?.toString() === creatorPublicKey.x.toFields()[1].toString()
+  }`
+);
+console.log(
+  `   Creator public key X3 matches: ${
+    storedCreatorX3?.toString() === creatorPublicKey.x.toFields()[2].toString()
+  }`
+);
+console.log(
+  `   Creator public key Y1 matches: ${
+    storedCreatorY1?.toString() === creatorPublicKey.y.toString()
+  }`
+);
+console.log(
+  `   Creator public key Y2 matches: ${
+    storedCreatorY2?.toString() === creatorPublicKey.y.toFields()[1].toString()
+  }`
+);
+console.log(
+  `   Creator public key Y3 matches: ${
+    storedCreatorY3?.toString() === creatorPublicKey.y.toFields()[2].toString()
   }`
 );
 
@@ -177,4 +206,4 @@ console.log('\nSummary:');
 console.log(`- Image: ${imagePath} (${imageData.length} bytes)`);
 console.log(`- SHA-256: ${imageHash}`);
 console.log(`- Token minted to: ${tokenOwnerAccount.toBase58()}`);
-console.log(`- Created by: ${creatorAccount.toBase58()}`);
+console.log(`- Created by: ${creatorKey.toBigInt()}`);

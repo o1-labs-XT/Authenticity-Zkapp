@@ -3,6 +3,8 @@ export {
   AuthenticityProgram,
   AuthenticityProof,
   AuthenticityInputs,
+  Secp256r1,
+  Ecdsa,
 } from './AuthenticityProof.js';
 
 export {
@@ -14,6 +16,7 @@ export {
   hashImageOffCircuit,
   prepareImageVerification,
   computeOnChainCommitment,
+  generateECKeyPair,
 } from './commitmentHelpers.js';
 
 export {

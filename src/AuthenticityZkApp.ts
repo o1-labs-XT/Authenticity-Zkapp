@@ -33,8 +33,10 @@ export class AuthenticityZkApp extends TokenContract {
   ) {
     // Check the inputs
     const creator = proof.publicInput.publicKey;
-    inputs.publicKey.assertEquals(creator);
-    inputs.signature.assertEquals(proof.publicInput.signature);
+    inputs.publicKey.x.assertEquals(creator.x);
+    inputs.publicKey.y.assertEquals(creator.y);
+    inputs.signature.r.assertEquals(proof.publicInput.signature.r);
+    inputs.signature.s.assertEquals(proof.publicInput.signature.s);
     Poseidon.hash(proof.publicInput.commitment.toFields()).assertEquals(
       Poseidon.hash(inputs.commitment.toFields())
     );
@@ -59,11 +61,27 @@ export class AuthenticityZkApp extends TokenContract {
     };
     update.body.update.appState[1] = {
       isSome: Bool(true),
-      value: creator.x,
+      value: creator.x.toFields()[0],
     };
     update.body.update.appState[2] = {
       isSome: Bool(true),
-      value: creator.isOdd.toField(),
+      value: creator.x.toFields()[1],
+    };
+    update.body.update.appState[3] = {
+      isSome: Bool(true),
+      value: creator.x.toFields()[2],
+    };
+    update.body.update.appState[4] = {
+      isSome: Bool(true),
+      value: creator.y.toFields()[0],
+    };
+    update.body.update.appState[5] = {
+      isSome: Bool(true),
+      value: creator.y.toFields()[1],
+    };
+    update.body.update.appState[6] = {
+      isSome: Bool(true),
+      value: creator.y.toFields()[2],
     };
   }
 }
