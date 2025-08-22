@@ -7,9 +7,25 @@ import {
   AccountUpdateForest,
   Bool,
   Poseidon,
+  Struct,
+  Field,
 } from 'o1js';
 
-import { AuthenticityProof, AuthenticityInputs } from './AuthenticityProof.js';
+import {
+  AuthenticityProof,
+  AuthenticityInputs,
+  Secp256r1,
+} from './AuthenticityProof.js';
+
+export { MintEvent, AuthenticityZkApp };
+/**
+ * Event emitted when a new authenticity token is minted
+ */
+class MintEvent extends Struct({
+  tokenAddress: PublicKey,
+  tokenCreator: Secp256r1,
+  authenticityCommitment: Field,
+}) {}
 
 /**
  * ZkApp that verifies authenticity proofs and stores metadata on-chain.
@@ -18,7 +34,11 @@ import { AuthenticityProof, AuthenticityInputs } from './AuthenticityProof.js';
  *  - Hash/commitment of the digital asset
  *  - Creator's public key
  */
-export class AuthenticityZkApp extends TokenContract {
+class AuthenticityZkApp extends TokenContract {
+  events = {
+    mint: MintEvent,
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async approveBase(forest: AccountUpdateForest) {
     throw Error(
@@ -53,6 +73,12 @@ export class AuthenticityZkApp extends TokenContract {
       address,
       amount: UInt64.from(1),
     });
+
+    this.emitEvent('mint', {
+      tokenAddress: address,
+      tokenCreator: creator,
+      authenticityCommitment: Poseidon.hash(inputs.commitment.toFields()),
+    } as MintEvent);
 
     // Set the on-chain state of the token account
     update.body.update.appState[0] = {

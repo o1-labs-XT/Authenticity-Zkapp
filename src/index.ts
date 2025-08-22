@@ -28,4 +28,5 @@ export {
 export {
   // Smart contract
   AuthenticityZkApp,
+  MintEvent,
 } from './AuthenticityZkApp.js';
