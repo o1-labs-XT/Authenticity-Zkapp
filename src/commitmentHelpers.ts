@@ -19,6 +19,7 @@ export {
   hashImageOffCircuit,
   prepareImageVerification,
   computeOnChainCommitment,
+  generateECKeyPair,
 };
 
 class Bytes32 extends Bytes(32) {}
@@ -353,8 +354,8 @@ async function computeOnChainCommitment(imageData: Buffer) {
   // Convert to Bytes32
   const bytes32 = Bytes32.fromHex(sha256Hash);
 
-  // import SHACommitment from AuthenticityZkApp here to avoid circular dependency
-  const { SHACommitment } = await import('./AuthenticityZkApp.js');
+  // import SHACommitment from bytesCompressionHelpers here to avoid circular dependency
+  const { SHACommitment } = await import('./bytesCompressionHelpers.js');
 
   // Create SHACommitment and get the two fields
   const shaCommitment = new SHACommitment({ bytes: bytes32 });
@@ -364,5 +365,51 @@ async function computeOnChainCommitment(imageData: Buffer) {
     sha256: sha256Hash,
     high128,
     low128,
+  };
+}
+
+function generateECKeyPair() {
+  if (!crypto) {
+    throw new Error('Crypto module is not available in this environment');
+  }
+  // Generate keypair and immediately export as JWK for easy access
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', {
+    namedCurve: 'prime256v1',
+  });
+
+  // Export as JWK to get the raw key components
+  const privateKeyJWK = privateKey.export({ format: 'jwk' });
+  const publicKeyJWK = publicKey.export({ format: 'jwk' });
+
+  // Helper to convert base64url to hex
+  const base64urlToHex = (base64url: string | undefined) => {
+    if (!base64url) {
+      throw new Error('Base64 URL string is undefined');
+    }
+    let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    return Buffer.from(base64, 'base64').toString('hex');
+  };
+
+  // Convert to hex
+  const privateKeyHex = base64urlToHex(privateKeyJWK.d);
+  const publicKeyXHex = base64urlToHex(publicKeyJWK.x);
+  const publicKeyYHex = base64urlToHex(publicKeyJWK.y);
+
+  return {
+    // Hex strings
+    privateKeyHex,
+    publicKeyXHex,
+    publicKeyYHex,
+    publicKeyHex: '04' + publicKeyXHex + publicKeyYHex, // Uncompressed format
+
+    // BigInts
+    privateKeyBigInt: BigInt('0x' + privateKeyHex),
+    publicKeyXBigInt: BigInt('0x' + publicKeyXHex),
+    publicKeyYBigInt: BigInt('0x' + publicKeyYHex),
+
+    // Original key objects (in case you need them)
+    privateKey,
+    publicKey,
   };
 }

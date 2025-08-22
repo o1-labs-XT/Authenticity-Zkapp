@@ -7,8 +7,13 @@ import {
   SHACommitment,
   hashImageOffCircuit,
   computeOnChainCommitment,
+  MintEvent,
+  generateECKeyPair,
+  Ecdsa,
+  Secp256r1,
+  Secp256r1Commitment,
 } from '../src/index.js';
-import { PrivateKey, Signature, Mina, AccountUpdate } from 'o1js';
+import { PrivateKey, Mina, AccountUpdate } from 'o1js';
 import fs from 'fs';
 
 console.log('🐱 Authenticity zkApp Example\n');
@@ -21,13 +26,13 @@ Mina.setActiveInstance(Local);
 // Create test accounts
 const deployerKey = Local.testAccounts[0].key;
 const deployerAccount = deployerKey.toPublicKey();
-const creatorKey = Local.testAccounts[1].key;
-const creatorAccount = creatorKey.toPublicKey();
 const tokenOwnerKey = Local.testAccounts[2].key;
 const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
 const payerKey = Local.testAccounts[3].key;
 const payerAccount = payerKey.toPublicKey();
-
+const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+const creatorPublicKey = Secp256r1.fromHex(publicKeyHex);
+const creatorKey = Secp256r1.Scalar.from(privateKeyBigInt);
 console.log('✅ Local blockchain ready\n');
 
 // Step 2: Load the cat image
@@ -56,16 +61,17 @@ console.log('4️⃣ Preparing image verification inputs...');
 const verificationInputs = prepareImageVerification(imagePath);
 
 // Create signature to prove ownership
-const signature = Signature.create(
-  creatorKey,
-  verificationInputs.expectedHash.toFields()
+
+const signature = Ecdsa.signHash(
+  verificationInputs.expectedHash,
+  creatorKey.toBigInt()
 );
 
 // Create public and private inputs
 const publicInputs = new AuthenticityInputs({
   commitment: verificationInputs.expectedHash,
   signature,
-  publicKey: creatorAccount,
+  publicKey: creatorPublicKey,
 });
 
 const privateInputs = new FinalRoundInputs({
@@ -131,8 +137,56 @@ await storeTxn.prove();
 await storeTxn.sign([payerKey, tokenOwnerKey]).send();
 console.log('✅ Image authenticity stored on-chain\n');
 
-// Step 9: Verify the on-chain data
-console.log('9️⃣ Verifying on-chain data...');
+// Step 9: Verify mint event was emitted correctly
+console.log('9️⃣ Verifying mint event...');
+const events = await zkApp.fetchEvents();
+console.log(`   Found ${events.length} event(s)`);
+
+if (events.length > 0) {
+  const latestEvent = events[events.length - 1];
+  const eventData = latestEvent.event.data as unknown as MintEvent;
+
+  console.log('\n   Mint Event Data:');
+  console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
+
+  // The creator is now stored as four individual fields, reconstruct to compare
+  const eventCreatorCommitment = Secp256r1Commitment.fromFourFields(
+    eventData.tokenCreatorXHigh,
+    eventData.tokenCreatorXLow,
+    eventData.tokenCreatorYHigh,
+    eventData.tokenCreatorYLow
+  );
+  const eventCreatorKey = eventCreatorCommitment.toPublicKey();
+  console.log(`   - Token Creator x: ${eventCreatorKey.x.toBigInt()}`);
+  console.log(`   - Token Creator y: ${eventCreatorKey.y.toBigInt()}`);
+  const eventShaCommitment = SHACommitment.fromTwoFields(
+    eventData.authenticityCommitmentHigh,
+    eventData.authenticityCommitmentLow
+  );
+  console.log(`   - Commitment: ${eventShaCommitment.toHex()}`);
+
+  // Verify event data matches expected values
+  console.log('\n   Mint Event Verification:');
+  console.log(
+    `   - Token address matches: ${eventData.tokenAddress
+      .equals(tokenOwnerAccount)
+      .toBoolean()}`
+  );
+
+  // Compare the reconstructed key with the original
+  const keysMatch =
+    eventCreatorKey.x.toBigInt() === creatorPublicKey.x.toBigInt() &&
+    eventCreatorKey.y.toBigInt() === creatorPublicKey.y.toBigInt();
+  console.log(`   - Creator public key matches: ${keysMatch}`);
+  console.log(
+    `   - Commitment matches: ${eventShaCommitment.toHex() === imageHash}`
+  );
+} else {
+  console.log('   ❌ No events found!');
+}
+
+// Step 10: Verify the on-chain data
+console.log('\n🔟 Verifying on-chain data...');
 
 // Get the token ID
 const tokenId = zkApp.deriveTokenId();
@@ -142,8 +196,6 @@ console.log(`🪙 Token ID: ${tokenId.toString()}`);
 const tokenAccount = Mina.getAccount(tokenOwnerAccount, tokenId);
 const storedHigh128 = tokenAccount.zkapp?.appState[1];
 const storedLow128 = tokenAccount.zkapp?.appState[2];
-const storedCreatorX = tokenAccount.zkapp?.appState[3];
-const storedCreatorIsOdd = tokenAccount.zkapp?.appState[4];
 
 // Reconstruct the SHA commitment from stored fields
 const shaCommitment = new SHACommitment({
@@ -151,6 +203,18 @@ const shaCommitment = new SHACommitment({
 });
 const { high128: expectedHigh, low128: expectedLow } =
   shaCommitment.toTwoFields();
+
+// Creator key is now stored as 4 fields instead of 6
+const storedCreatorXHigh = tokenAccount.zkapp?.appState[3];
+const storedCreatorXLow = tokenAccount.zkapp?.appState[4];
+const storedCreatorYHigh = tokenAccount.zkapp?.appState[5];
+const storedCreatorYLow = tokenAccount.zkapp?.appState[6];
+
+// Reconstruct the creator commitment from stored fields
+const expectedCreatorCommitment =
+  Secp256r1Commitment.fromPublicKey(creatorPublicKey);
+const { xHigh128, xLow128, yHigh128, yLow128 } =
+  expectedCreatorCommitment.toFourFields();
 
 console.log('\n📊 On-chain verification results:');
 console.log(
@@ -164,13 +228,23 @@ console.log(
   }`
 );
 console.log(
-  `   Creator public key X matches: ${
-    storedCreatorX?.toString() === creatorAccount.x.toString()
+  `   Creator public key xHigh matches: ${
+    storedCreatorXHigh?.toString() === xHigh128.toString()
   }`
 );
 console.log(
-  `   Creator public key isOdd matches: ${
-    storedCreatorIsOdd?.toString() === creatorAccount.isOdd.toField().toString()
+  `   Creator public key xLow matches: ${
+    storedCreatorXLow?.toString() === xLow128.toString()
+  }`
+);
+console.log(
+  `   Creator public key yHigh matches: ${
+    storedCreatorYHigh?.toString() === yHigh128.toString()
+  }`
+);
+console.log(
+  `   Creator public key yLow matches: ${
+    storedCreatorYLow?.toString() === yLow128.toString()
   }`
 );
 
@@ -187,19 +261,17 @@ if (storedHigh128 && storedLow128) {
 }
 
 // Test the helper function with the new storage format
-console.log('\n🧪 Testing computeOnChainCommitment helper:');
+console.log('\n1️⃣1️⃣ Testing computeOnChainCommitment helper:');
 const helperResult = await computeOnChainCommitment(imageData);
-console.log(`   SHA-256: ${helperResult.sha256}`);
-console.log(`   High128: ${helperResult.high128.toString()}`);
-console.log(`   Low128:  ${helperResult.low128.toString()}`);
-console.log(
-  `   High128 matches stored: ${
-    helperResult.high128.toString() === storedHigh128?.toString()
-  }`
-);
+
 console.log(
   `   Low128 matches stored: ${
     helperResult.low128.toString() === storedLow128?.toString()
+  }`
+);
+console.log(
+  `   High128 matches stored: ${
+    helperResult.high128.toString() === storedHigh128?.toString()
   }`
 );
 
@@ -208,4 +280,4 @@ console.log('\nSummary:');
 console.log(`- Image: ${imagePath} (${imageData.length} bytes)`);
 console.log(`- SHA-256: ${imageHash}`);
 console.log(`- Token minted to: ${tokenOwnerAccount.toBase58()}`);
-console.log(`- Created by: ${creatorAccount.toBase58()}`);
+console.log(`- Created by: ${creatorKey.toBigInt()}`);

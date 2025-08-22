@@ -1,24 +1,17 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  PrivateKey,
-  PublicKey,
-  Signature,
-  UInt32,
-  UInt8,
-  Field,
-  Provable,
-} from 'o1js';
+import { UInt32, UInt8, Provable } from 'o1js';
 import {
   AuthenticityProgram,
-  AuthenticityProof,
   AuthenticityInputs,
+  Ecdsa,
+  Secp256r1,
 } from './AuthenticityProof.js';
 import {
   Bytes32,
   FinalRoundInputs,
   hashUntilFinalRound,
-  performFinalSHA256Round,
+  generateECKeyPair,
 } from './commitmentHelpers.js';
 
 describe('AuthenticityProof', () => {
@@ -34,9 +27,9 @@ describe('AuthenticityProof', () => {
       const testData = Buffer.from('Hello, zkApp world!');
 
       // Generate keys for signing
-      const privateKey = PrivateKey.random();
-      const publicKey = PublicKey.fromPrivateKey(privateKey);
-
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
       // Hash the data until final round
       const { penultimateState, finalRoundInputs, expectedHash } =
         hashUntilFinalRound(testData);
@@ -53,8 +46,8 @@ describe('AuthenticityProof', () => {
       const commitment = Bytes32.fromHex(expectedHash);
 
       // Sign the commitment
-      const signature = Signature.create(privateKey, commitment.toFields());
-
+      //const signature = Signature.create(privateKey, commitment.toFields());
+      const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
       // Create public inputs
       const publicInputs = new AuthenticityInputs({
         commitment: commitment,
@@ -92,8 +85,9 @@ describe('AuthenticityProof', () => {
       ];
 
       for (const testData of testCases) {
-        const privateKey = PrivateKey.random();
-        const publicKey = PublicKey.fromPrivateKey(privateKey);
+        const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+        const publicKey = Secp256r1.fromHex(publicKeyHex);
+        const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
 
         const { penultimateState, finalRoundInputs, expectedHash } =
           hashUntilFinalRound(testData);
@@ -106,7 +100,7 @@ describe('AuthenticityProof', () => {
         ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
 
         const commitment = Bytes32.fromHex(expectedHash);
-        const signature = Signature.create(privateKey, commitment.toFields());
+        const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
 
         const publicInputs = new AuthenticityInputs({
           commitment: commitment,
@@ -135,8 +129,9 @@ describe('AuthenticityProof', () => {
   describe('Negative cases', () => {
     it('should fail with incorrect commitment', async () => {
       const testData = Buffer.from('Hello, zkApp world!');
-      const privateKey = PrivateKey.random();
-      const publicKey = PublicKey.fromPrivateKey(privateKey);
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
 
       const { penultimateState, finalRoundInputs } =
         hashUntilFinalRound(testData);
@@ -152,10 +147,7 @@ describe('AuthenticityProof', () => {
       const wrongCommitment = Bytes32.fromHex(
         '0000000000000000000000000000000000000000000000000000000000000000'
       );
-      const signature = Signature.create(
-        privateKey,
-        wrongCommitment.toFields()
-      );
+      const signature = Ecdsa.signHash(wrongCommitment, privateKey.toBigInt());
 
       const publicInputs = new AuthenticityInputs({
         commitment: wrongCommitment,
@@ -178,8 +170,8 @@ describe('AuthenticityProof', () => {
 
     it('should fail with invalid signature', async () => {
       const testData = Buffer.from('Hello, zkApp world!');
-      const privateKey = PrivateKey.random();
-      const publicKey = PublicKey.fromPrivateKey(privateKey);
+      const { publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
 
       const { penultimateState, finalRoundInputs, expectedHash } =
         hashUntilFinalRound(testData);
@@ -194,10 +186,12 @@ describe('AuthenticityProof', () => {
       const commitment = Bytes32.fromHex(expectedHash);
 
       // Create signature with different private key
-      const wrongPrivateKey = PrivateKey.random();
-      const wrongSignature = Signature.create(
-        wrongPrivateKey,
-        commitment.toFields()
+      const wrongPrivateKey = Secp256r1.Scalar.from(
+        generateECKeyPair().privateKeyBigInt
+      );
+      const wrongSignature = Ecdsa.signHash(
+        commitment,
+        wrongPrivateKey.toBigInt()
       );
 
       const publicInputs = new AuthenticityInputs({
@@ -221,8 +215,9 @@ describe('AuthenticityProof', () => {
 
     it('should fail with wrong final round inputs', async () => {
       const testData = Buffer.from('Hello, zkApp world!');
-      const privateKey = PrivateKey.random();
-      const publicKey = PublicKey.fromPrivateKey(privateKey);
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
 
       const { penultimateState, finalRoundInputs, expectedHash } =
         hashUntilFinalRound(testData);
@@ -235,7 +230,7 @@ describe('AuthenticityProof', () => {
       ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
 
       const commitment = Bytes32.fromHex(expectedHash);
-      const signature = Signature.create(privateKey, commitment.toFields());
+      const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
 
       const publicInputs = new AuthenticityInputs({
         commitment: commitment,
@@ -259,8 +254,9 @@ describe('AuthenticityProof', () => {
 
     it('should fail with tampered state', async () => {
       const testData = Buffer.from('Hello, zkApp world!');
-      const privateKey = PrivateKey.random();
-      const publicKey = PublicKey.fromPrivateKey(privateKey);
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
 
       const { penultimateState, finalRoundInputs, expectedHash } =
         hashUntilFinalRound(testData);
@@ -284,7 +280,7 @@ describe('AuthenticityProof', () => {
       ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
 
       const commitment = Bytes32.fromHex(expectedHash);
-      const signature = Signature.create(privateKey, commitment.toFields());
+      const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
 
       const publicInputs = new AuthenticityInputs({
         commitment: commitment,
@@ -309,8 +305,9 @@ describe('AuthenticityProof', () => {
   describe('Edge cases', () => {
     it('should handle maximum values in state', async () => {
       const testData = Buffer.from('Test with max values');
-      const privateKey = PrivateKey.random();
-      const publicKey = PublicKey.fromPrivateKey(privateKey);
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
 
       const { penultimateState, finalRoundInputs, expectedHash } =
         hashUntilFinalRound(testData);
@@ -353,7 +350,7 @@ describe('AuthenticityProof', () => {
       ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
 
       const commitment = Bytes32.fromHex(expectedHash);
-      const signature = Signature.create(privateKey, commitment.toFields());
+      const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
 
       const publicInputs = new AuthenticityInputs({
         commitment: commitment,

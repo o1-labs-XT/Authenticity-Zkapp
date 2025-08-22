@@ -1,15 +1,32 @@
-import { UInt8, Signature, Struct, ZkProgram, Provable, PublicKey } from 'o1js';
+import {
+  UInt8,
+  Struct,
+  ZkProgram,
+  Provable,
+  createForeignCurve,
+  createEcdsa,
+  Crypto,
+} from 'o1js';
 import {
   Bytes32,
   FinalRoundInputs,
   performFinalSHA256Round,
 } from './commitmentHelpers.js';
-export { AuthenticityProgram, AuthenticityProof, AuthenticityInputs };
+export {
+  AuthenticityProgram,
+  AuthenticityProof,
+  AuthenticityInputs,
+  Secp256r1,
+  Ecdsa,
+};
+
+class Secp256r1 extends createForeignCurve(Crypto.CurveParams.Secp256r1) {}
+class Ecdsa extends createEcdsa(Secp256r1) {}
 
 class AuthenticityInputs extends Struct({
   commitment: Bytes32,
-  signature: Signature,
-  publicKey: PublicKey,
+  signature: Ecdsa,
+  publicKey: Secp256r1,
 }) {}
 
 const AuthenticityProgram = ZkProgram({
@@ -65,7 +82,7 @@ const AuthenticityProgram = ZkProgram({
 
         // Verify the signature against the commitment
         publicInput.signature
-          .verify(publicInput.publicKey, publicInput.commitment.toFields())
+          .verifySignedHash(publicInput.commitment, publicInput.publicKey)
           .assertTrue();
       },
     },

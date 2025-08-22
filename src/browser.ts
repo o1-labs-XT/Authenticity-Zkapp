@@ -3,11 +3,8 @@
  * Contains cross-platform functions that work in both browsers and Node.js
  */
 
-import { Bytes } from 'o1js';
-import { SHACommitment } from './AuthenticityZkApp.js';
-
-// Bytes32 class for this module
-class Bytes32 extends Bytes(32) {}
+import { SHACommitment } from './bytesCompressionHelpers.js';
+import { Bytes32 } from './commitmentHelpers.js';
 
 /**
  * Cross-platform version of hashImageOffCircuit that works in browsers and Node.js
