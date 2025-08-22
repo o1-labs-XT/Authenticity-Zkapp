@@ -161,7 +161,7 @@ console.log(
 );
 console.log(
   `   Creator public key X1 matches: ${
-    storedCreatorX1?.toString() === creatorPublicKey.x.toString()
+    storedCreatorX1?.toString() === creatorPublicKey.x.toFields()[0].toString()
   }`
 );
 console.log(
@@ -176,7 +176,7 @@ console.log(
 );
 console.log(
   `   Creator public key Y1 matches: ${
-    storedCreatorY1?.toString() === creatorPublicKey.y.toString()
+    storedCreatorY1?.toString() === creatorPublicKey.y.toFields()[0].toString()
   }`
 );
 console.log(
@@ -193,11 +193,11 @@ console.log(
 // Test the new helper function
 console.log('\n🧪 Testing computeOnChainCommitment helper:');
 const helperCommitment = computeOnChainCommitment(imageData);
-console.log(`   Helper result: ${helperCommitment.toString()}`);
+console.log(`   Helper result: ${helperCommitment.poseidon.toString()}`);
 console.log(`   Stored value:  ${storedCommitment?.toString()}`);
 console.log(
   `   Helper matches stored value: ${
-    helperCommitment.toString() === storedCommitment?.toString()
+    helperCommitment.poseidon.toString() === storedCommitment?.toString()
   }`
 );
 
