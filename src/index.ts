@@ -26,7 +26,12 @@ export {
 } from './browser.js';
 
 export {
-  // Smart contract
+  // Smart contract and types
   AuthenticityZkApp,
   MintEvent,
 } from './AuthenticityZkApp.js';
+
+export {
+  SHACommitment,
+  Secp256r1Commitment,
+} from './bytesCompressionHelpers.js';

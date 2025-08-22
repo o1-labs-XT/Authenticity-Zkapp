@@ -1,10 +1,6 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  UInt32,
-  UInt8,
-  Provable,
-} from 'o1js';
+import { UInt32, UInt8, Provable } from 'o1js';
 import {
   AuthenticityProgram,
   AuthenticityInputs,

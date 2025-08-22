@@ -4,21 +4,16 @@ import {
   FinalRoundInputs,
   prepareImageVerification,
   AuthenticityZkApp,
+  SHACommitment,
   hashImageOffCircuit,
   computeOnChainCommitment,
   MintEvent,
   generateECKeyPair,
   Ecdsa,
   Secp256r1,
+  Secp256r1Commitment,
 } from '../src/index.js';
-import {
-  PrivateKey,
-  Mina,
-  AccountUpdate,
-  Poseidon,
-  ForeignCurve,
-  Bool,
-} from 'o1js';
+import { PrivateKey, Mina, AccountUpdate } from 'o1js';
 import fs from 'fs';
 
 console.log('🐱 Authenticity zkApp Example\n');
@@ -153,9 +148,21 @@ if (events.length > 0) {
 
   console.log('\n   Mint Event Data:');
   console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
-  console.log(`   - Token Creator x: ${eventData.tokenCreator.x.toBigInt()}`);
-  console.log(`   - Token Creator y: ${eventData.tokenCreator.y.toBigInt()}`);
-  console.log(`   - Commitment: ${eventData.authenticityCommitment}`);
+
+  const eventCreatorCommitment = Secp256r1Commitment.fromFourFields(
+    eventData.tokenCreatorXHigh,
+    eventData.tokenCreatorXLow,
+    eventData.tokenCreatorYHigh,
+    eventData.tokenCreatorYLow
+  );
+  const eventCreatorKey = eventCreatorCommitment.toPublicKey();
+  console.log(`   - Token Creator x: ${eventCreatorKey.x.toBigInt()}`);
+  console.log(`   - Token Creator y: ${eventCreatorKey.y.toBigInt()}`);
+  const eventShaCommitment = SHACommitment.fromTwoFields(
+    eventData.authenticityCommitmentHigh,
+    eventData.authenticityCommitmentLow
+  );
+  console.log(`   - Commitment: ${eventShaCommitment.toHex()}`);
 
   // Verify event data matches expected values
   console.log('\n   Mint Event Verification:');
@@ -164,19 +171,14 @@ if (events.length > 0) {
       .equals(tokenOwnerAccount)
       .toBoolean()}`
   );
+
+  // Compare the reconstructed key with the original
+  const keysMatch =
+    eventCreatorKey.x.toBigInt() === creatorPublicKey.x.toBigInt() &&
+    eventCreatorKey.y.toBigInt() === creatorPublicKey.y.toBigInt();
+  console.log(`   - Creator public key matches: ${keysMatch}`);
   console.log(
-    `   - Creator public key matches: ${Bool.and(
-      eventData.tokenCreator.x
-        .equals(creatorPublicKey.x.toBigInt())
-        .toBoolean(),
-      eventData.tokenCreator.y.equals(creatorPublicKey.y.toBigInt()).toBoolean()
-    )}`
-  );
-  console.log(
-    `   - Commitment matches: ${
-      eventData.authenticityCommitment.toString() ===
-      Poseidon.hash(verificationInputs.expectedHash.toFields()).toString()
-    }`
+    `   - Commitment matches: ${eventShaCommitment.toHex() === imageHash}`
   );
 } else {
   console.log('   ❌ No events found!');
@@ -191,61 +193,83 @@ console.log(`🪙 Token ID: ${tokenId.toString()}`);
 
 // Check the token account state
 const tokenAccount = Mina.getAccount(tokenOwnerAccount, tokenId);
-const storedCommitment = tokenAccount.zkapp?.appState[0];
-const storedCreatorX1 = tokenAccount.zkapp?.appState[1];
-const storedCreatorX2 = tokenAccount.zkapp?.appState[2];
-const storedCreatorX3 = tokenAccount.zkapp?.appState[3];
+const storedHigh128 = tokenAccount.zkapp?.appState[1];
+const storedLow128 = tokenAccount.zkapp?.appState[2];
 
-const storedCreatorY1 = tokenAccount.zkapp?.appState[4];
-const storedCreatorY2 = tokenAccount.zkapp?.appState[5];
-const storedCreatorY3 = tokenAccount.zkapp?.appState[6];
+// Reconstruct the SHA commitment from stored fields
+const shaCommitment = new SHACommitment({
+  bytes: verificationInputs.expectedHash,
+});
+const { high128: expectedHigh, low128: expectedLow } =
+  shaCommitment.toTwoFields();
+
+const storedCreatorXHigh = tokenAccount.zkapp?.appState[3];
+const storedCreatorXLow = tokenAccount.zkapp?.appState[4];
+const storedCreatorYHigh = tokenAccount.zkapp?.appState[5];
+const storedCreatorYLow = tokenAccount.zkapp?.appState[6];
+
+// Reconstruct the creator commitment from stored fields
+const expectedCreatorCommitment =
+  Secp256r1Commitment.fromPublicKey(creatorPublicKey);
+const { xHigh128, xLow128, yHigh128, yLow128 } =
+  expectedCreatorCommitment.toFourFields();
 
 console.log('\n📊 On-chain verification results:');
 console.log(
-  `   Stored commitment matches: ${
-    storedCommitment?.toString() ===
-    Poseidon.hash(verificationInputs.expectedHash.toFields()).toString()
+  `   Stored high128 matches: ${
+    storedHigh128?.toString() === expectedHigh.toString()
   }`
 );
 console.log(
-  `   Creator public key X1 matches: ${
-    storedCreatorX1?.toString() === creatorPublicKey.x.toFields()[0].toString()
+  `   Stored low128 matches: ${
+    storedLow128?.toString() === expectedLow.toString()
   }`
 );
 console.log(
-  `   Creator public key X2 matches: ${
-    storedCreatorX2?.toString() === creatorPublicKey.x.toFields()[1].toString()
+  `   Creator public key xHigh matches: ${
+    storedCreatorXHigh?.toString() === xHigh128.toString()
   }`
 );
 console.log(
-  `   Creator public key X3 matches: ${
-    storedCreatorX3?.toString() === creatorPublicKey.x.toFields()[2].toString()
+  `   Creator public key xLow matches: ${
+    storedCreatorXLow?.toString() === xLow128.toString()
   }`
 );
 console.log(
-  `   Creator public key Y1 matches: ${
-    storedCreatorY1?.toString() === creatorPublicKey.y.toFields()[0].toString()
+  `   Creator public key yHigh matches: ${
+    storedCreatorYHigh?.toString() === yHigh128.toString()
   }`
 );
 console.log(
-  `   Creator public key Y2 matches: ${
-    storedCreatorY2?.toString() === creatorPublicKey.y.toFields()[1].toString()
-  }`
-);
-console.log(
-  `   Creator public key Y3 matches: ${
-    storedCreatorY3?.toString() === creatorPublicKey.y.toFields()[2].toString()
+  `   Creator public key yLow matches: ${
+    storedCreatorYLow?.toString() === yLow128.toString()
   }`
 );
 
-// Test the new helper function
+// Verify we can reconstruct the original hash
+if (storedHigh128 && storedLow128) {
+  const reconstructedCommitment = SHACommitment.fromTwoFields(
+    storedHigh128,
+    storedLow128
+  );
+  console.log('\n🔍 Reconstructed commitment verification:');
+  console.log(`   Original SHA-256: ${imageHash}`);
+  console.log(`   Reconstructed:    ${reconstructedCommitment.toHex()}`);
+  console.log(`   Matches: ${reconstructedCommitment.toHex() === imageHash}`);
+}
+
+// Test the helper function with the new storage format
 console.log('\n1️⃣1️⃣ Testing computeOnChainCommitment helper:');
-const helperCommitment = computeOnChainCommitment(imageData);
-console.log(`   Helper result: ${helperCommitment.poseidon.toString()}`);
-console.log(`   Stored value:  ${storedCommitment?.toString()}`);
+const helperResult = await computeOnChainCommitment(imageData);
+
 console.log(
-  `   Helper matches stored value: ${
-    helperCommitment.poseidon.toString() === storedCommitment?.toString()
+  `   Low128 matches stored: ${
+    helperResult.low128.toString() === storedLow128?.toString()
+  }`
+);
+console.log(
+  `   High128 matches stored: ${
+    helperResult.high128.toString() === storedHigh128?.toString()
   }`
 );
 

@@ -7,24 +7,32 @@ import {
   AccountUpdateForest,
   Bool,
   Poseidon,
-  Struct,
   Field,
+  Struct,
 } from 'o1js';
 
+import { Bytes32 } from './commitmentHelpers.js';
+
+import { AuthenticityProof, AuthenticityInputs } from './AuthenticityProof.js';
+
 import {
-  AuthenticityProof,
-  AuthenticityInputs,
-  Secp256r1,
-} from './AuthenticityProof.js';
+  SHACommitment,
+  Secp256r1Commitment,
+} from './bytesCompressionHelpers.js';
 
 export { MintEvent, AuthenticityZkApp };
+
 /**
  * Event emitted when a new authenticity token is minted
  */
 class MintEvent extends Struct({
   tokenAddress: PublicKey,
-  tokenCreator: Secp256r1,
-  authenticityCommitment: Field,
+  tokenCreatorXHigh: Field,
+  tokenCreatorXLow: Field,
+  tokenCreatorYHigh: Field,
+  tokenCreatorYLow: Field,
+  authenticityCommitmentHigh: Field, // High 128 bits of SHA
+  authenticityCommitmentLow: Field, // Low 128 bits of SHA
 }) {}
 
 /**
@@ -74,40 +82,56 @@ class AuthenticityZkApp extends TokenContract {
       amount: UInt64.from(1),
     });
 
+    // Create SHA commitment for the asset
+    const shaCommitment = new SHACommitment({
+      bytes: new Bytes32(inputs.commitment.bytes),
+    });
+    const { high128: shaHigh, low128: shaLow } = shaCommitment.toTwoFields();
+
+    // Create compressed commitment for the creator's public key
+    const creatorCommitment = Secp256r1Commitment.fromPublicKey(creator);
+    const { xHigh128, xLow128, yHigh128, yLow128 } =
+      creatorCommitment.toFourFields();
+
+    // Emit event with compressed fields
     this.emitEvent('mint', {
       tokenAddress: address,
-      tokenCreator: creator,
-      authenticityCommitment: Poseidon.hash(inputs.commitment.toFields()),
+      tokenCreatorXHigh: xHigh128,
+      tokenCreatorXLow: xLow128,
+      tokenCreatorYHigh: yHigh128,
+      tokenCreatorYLow: yLow128,
+      authenticityCommitmentHigh: shaHigh,
+      authenticityCommitmentLow: shaLow,
     } as MintEvent);
 
     // Set the on-chain state of the token account
     update.body.update.appState[0] = {
       isSome: Bool(true),
-      value: Poseidon.hash(inputs.commitment.toFields()),
+      value: Field(2), // Token Schema Version 2 (using compression)
     };
     update.body.update.appState[1] = {
       isSome: Bool(true),
-      value: creator.x.toFields()[0],
+      value: shaHigh, // High 128 bits of the SHA commitment
     };
     update.body.update.appState[2] = {
       isSome: Bool(true),
-      value: creator.x.toFields()[1],
+      value: shaLow, // Low 128 bits of the SHA commitment
     };
     update.body.update.appState[3] = {
       isSome: Bool(true),
-      value: creator.x.toFields()[2],
+      value: xHigh128, // Creator's public key x high 128 bits
     };
     update.body.update.appState[4] = {
       isSome: Bool(true),
-      value: creator.y.toFields()[0],
+      value: xLow128, // Creator's public key x low 128 bits
     };
     update.body.update.appState[5] = {
       isSome: Bool(true),
-      value: creator.y.toFields()[1],
+      value: yHigh128, // Creator's public key y high 128 bits
     };
     update.body.update.appState[6] = {
       isSome: Bool(true),
-      value: creator.y.toFields()[2],
+      value: yLow128, // Creator's public key y low 128 bits
     };
   }
 }
