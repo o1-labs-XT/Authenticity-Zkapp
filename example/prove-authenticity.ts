@@ -149,7 +149,6 @@ if (events.length > 0) {
   console.log('\n   Mint Event Data:');
   console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
 
-  // The creator is now stored as four individual fields, reconstruct to compare
   const eventCreatorCommitment = Secp256r1Commitment.fromFourFields(
     eventData.tokenCreatorXHigh,
     eventData.tokenCreatorXLow,
@@ -204,7 +203,6 @@ const shaCommitment = new SHACommitment({
 const { high128: expectedHigh, low128: expectedLow } =
   shaCommitment.toTwoFields();
 
-// Creator key is now stored as 4 fields instead of 6
 const storedCreatorXHigh = tokenAccount.zkapp?.appState[3];
 const storedCreatorXLow = tokenAccount.zkapp?.appState[4];
 const storedCreatorYHigh = tokenAccount.zkapp?.appState[5];
