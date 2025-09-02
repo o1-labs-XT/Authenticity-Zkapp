@@ -17,7 +17,9 @@ export {
   prepareImageVerification,
   computeOnChainCommitment,
   generateECKeyPair,
-} from './commitmentHelpers.js';
+  SHACommitment,
+  Secp256r1Commitment,
+} from './helpers/index.js';
 
 export {
   // Cross-platform versions for browser compatibility
@@ -30,8 +32,3 @@ export {
   AuthenticityZkApp,
   MintEvent,
 } from './AuthenticityZkApp.js';
-
-export {
-  SHACommitment,
-  Secp256r1Commitment,
-} from './bytesCompressionHelpers.js';
