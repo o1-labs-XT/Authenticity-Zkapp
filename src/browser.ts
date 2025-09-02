@@ -3,8 +3,6 @@
  * Contains cross-platform functions that work in both browsers and Node.js
  */
 
-// import { SHACommitment } from './bytesCompressionHelpers.js';
-// import { Bytes32 } from './commitmentHelpers.js';
 import { SHACommitment, Bytes32 } from './helpers/index.js';
 
 /**
