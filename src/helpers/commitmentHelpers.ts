@@ -1,4 +1,5 @@
-import { UInt32, Bytes, Struct, Provable } from 'o1js';
+import { UInt32 } from 'o1js';
+import { Bytes32, FinalRoundInputs } from './types.js';
 let crypto: typeof import('crypto') | undefined;
 let fs: typeof import('fs') | undefined;
 
@@ -22,14 +23,6 @@ export {
   generateECKeyPair,
 };
 
-class Bytes32 extends Bytes(32) {}
-
-class FinalRoundInputs extends Struct({
-  state: Provable.Array(UInt32, 8), // 256 bits = 8 * 32 bits
-  initialState: Provable.Array(UInt32, 8),
-  messageWord: UInt32,
-  roundConstant: UInt32,
-}) {}
 
 // SHA-256 constants
 const K = [

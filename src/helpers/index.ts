@@ -1,6 +1,6 @@
+export { Bytes32, FinalRoundInputs } from './types.js';
+
 export {
-    Bytes32,
-    FinalRoundInputs,
     hashUntilFinalRound,
     performFinalSHA256Round,
     hashImageOffCircuit,
