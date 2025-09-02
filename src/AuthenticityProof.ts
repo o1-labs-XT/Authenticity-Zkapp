@@ -11,7 +11,7 @@ import {
   Bytes32,
   FinalRoundInputs,
   performFinalSHA256Round,
-} from './commitmentHelpers.js';
+} from './helpers/index.js';
 export {
   AuthenticityProgram,
   AuthenticityProof,

@@ -11,14 +11,13 @@ import {
   Struct,
 } from 'o1js';
 
-import { Bytes32 } from './commitmentHelpers.js';
-
 import { AuthenticityProof, AuthenticityInputs } from './AuthenticityProof.js';
 
 import {
   SHACommitment,
   Secp256r1Commitment,
-} from './bytesCompressionHelpers.js';
+  Bytes32
+} from './helpers/index.js';
 
 export { MintEvent, AuthenticityZkApp };
 
