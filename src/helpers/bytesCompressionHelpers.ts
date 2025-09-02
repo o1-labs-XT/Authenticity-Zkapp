@@ -1,5 +1,5 @@
 import { Field, Struct, Provable, UInt8 } from 'o1js';
-import { Secp256r1 } from './AuthenticityProof.js';
+import { Secp256r1 } from '../AuthenticityProof.js';
 import { Bytes32 } from './commitmentHelpers.js';
 
 export { Secp256r1Commitment, SHACommitment };

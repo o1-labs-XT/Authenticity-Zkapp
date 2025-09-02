@@ -9,7 +9,7 @@ import {
   performFinalSHA256Round,
   hashImageOffCircuit,
   prepareImageVerification,
-} from './commitmentHelpers.js';
+} from '../helpers/commitmentHelpers.js';
 
 describe('commitmentHelpers', () => {
   // Note: The performFinalSHA256Round function uses UInt32.add() which enforces

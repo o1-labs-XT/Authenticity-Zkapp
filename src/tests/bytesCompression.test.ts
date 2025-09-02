@@ -1,9 +1,9 @@
 import { Field } from 'o1js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { SHACommitment, Secp256r1Commitment } from './bytesCompressionHelpers.js';
-import { Secp256r1 } from './AuthenticityProof.js';
-import { generateECKeyPair } from './commitmentHelpers.js';
+import { SHACommitment, Secp256r1Commitment } from '../helpers/bytesCompressionHelpers.js';
+import { Secp256r1 } from '../AuthenticityProof.js';
+import { generateECKeyPair } from '../helpers/commitmentHelpers.js';
 
 describe('Bytes Compression Helpers', () => {
   describe('SHACommitment', () => {

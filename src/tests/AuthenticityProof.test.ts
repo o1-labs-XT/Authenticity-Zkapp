@@ -6,13 +6,13 @@ import {
   AuthenticityInputs,
   Ecdsa,
   Secp256r1,
-} from './AuthenticityProof.js';
+} from '../AuthenticityProof.js';
 import {
   Bytes32,
   FinalRoundInputs,
   hashUntilFinalRound,
   generateECKeyPair,
-} from './commitmentHelpers.js';
+} from '../helpers/commitmentHelpers.js';
 
 describe('AuthenticityProof', () => {
   before(async () => {
