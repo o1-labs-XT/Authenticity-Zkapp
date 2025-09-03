@@ -56,17 +56,8 @@ class AuthenticityZkApp extends TokenContract {
   @method async verifyAndStore(
     address: PublicKey, // Address of the new token account
     proof: AuthenticityProof,
-    inputs: AuthenticityInputs
   ) {
-    // Check the inputs
-    const creator = proof.publicInput.publicKey;
-    inputs.publicKey.x.assertEquals(creator.x);
-    inputs.publicKey.y.assertEquals(creator.y);
-    inputs.signature.r.assertEquals(proof.publicInput.signature.r);
-    inputs.signature.s.assertEquals(proof.publicInput.signature.s);
-    Poseidon.hash(proof.publicInput.commitment.toFields()).assertEquals(
-      Poseidon.hash(inputs.commitment.toFields())
-    );
+
 
     // Verify the provided proof using the AuthenticityProgram
     proof.verify();
@@ -83,12 +74,12 @@ class AuthenticityZkApp extends TokenContract {
 
     // Create SHA commitment for the asset
     const shaCommitment = new SHACommitment({
-      bytes: new Bytes32(inputs.commitment.bytes),
+      bytes: new Bytes32(proof.publicInput.commitment.bytes),
     });
     const { high128: shaHigh, low128: shaLow } = shaCommitment.toTwoFields();
 
     // Create compressed commitment for the creator's public key
-    const creatorCommitment = Secp256r1Commitment.fromPublicKey(creator);
+    const creatorCommitment = Secp256r1Commitment.fromPublicKey(proof.publicInput.publicKey);
     const { xHigh128, xLow128, yHigh128, yLow128 } =
       creatorCommitment.toFourFields();
 
