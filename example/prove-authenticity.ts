@@ -4,6 +4,7 @@ import {
   FinalRoundInputs,
   prepareImageVerification,
   AuthenticityZkApp,
+  TokenAccountContract,
   SHACommitment,
   hashImageOffCircuit,
   computeOnChainCommitment,
@@ -26,10 +27,8 @@ Mina.setActiveInstance(Local);
 // Create test accounts
 const deployerKey = Local.testAccounts[0].key;
 const deployerAccount = deployerKey.toPublicKey();
-const tokenOwnerKey = Local.testAccounts[2].key;
-const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
-const payerKey = Local.testAccounts[3].key;
-const payerAccount = payerKey.toPublicKey();
+const minterKey = Local.testAccounts[2].key;
+const minterAccount = minterKey.toPublicKey();
 const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
 const creatorPublicKey = Secp256r1.fromHex(publicKeyHex);
 const creatorKey = Secp256r1.Scalar.from(privateKeyBigInt);
@@ -106,12 +105,16 @@ console.log('7️⃣ Deploying AuthenticityZkApp contract...');
 const zkAppKey = PrivateKey.random();
 const zkApp = new AuthenticityZkApp(zkAppKey.toPublicKey());
 
-// Compile the contract
-console.log('   Compiling contract...');
+// Compile contracts
+console.log('   Compiling contracts...');
 const contractStartTime = Date.now();
+console.log('   - Compiling AuthenticityZkApp...');
 await AuthenticityZkApp.compile();
+console.log('   - Compiling TokenAccountContract...');
+const tokenVk = await TokenAccountContract.compile();
+console.log('   - TokenAccountContract VK hash:', tokenVk.verificationKey.hash.toString());
 console.log(
-  `   Contract compiled in ${((Date.now() - contractStartTime) / 1000).toFixed(
+  `   Contracts compiled in ${((Date.now() - contractStartTime) / 1000).toFixed(
     1
   )}s`
 );
@@ -127,61 +130,76 @@ console.log('✅ Contract deployed\n');
 
 // Step 8: Verify and store image metadata on-chain
 console.log('8️⃣ Storing image authenticity on-chain...');
-const storeTxn = await Mina.transaction(payerAccount, async () => {
-  // Fund the token account
-  AccountUpdate.fundNewAccount(payerAccount);
 
-  await zkApp.verifyAndStore(tokenOwnerAccount, proof);
+// Generate new address for token account
+const tokenAccountPrivateKey = PrivateKey.random();
+const tokenAccountAddress = tokenAccountPrivateKey.toPublicKey();
+console.log('   Generated token account address:', tokenAccountAddress.toBase58());
+
+const storeTxn = await Mina.transaction(minterAccount, async () => {
+  // Fund the new token account
+  AccountUpdate.fundNewAccount(minterAccount, 1);
+  await zkApp.verifyAndStore(proof, tokenVk.verificationKey, tokenAccountAddress);
 });
 await storeTxn.prove();
-await storeTxn.sign([payerKey, tokenOwnerKey]).send();
+await storeTxn.sign([minterKey, tokenAccountPrivateKey]).send();
 console.log('✅ Image authenticity stored on-chain\n');
 
-// Step 9: Verify mint event was emitted correctly
-console.log('9️⃣ Verifying mint event...');
+// Step 9: Verify events were emitted correctly
+console.log('9️⃣ Verifying events...');
 const events = await zkApp.fetchEvents();
 console.log(`   Found ${events.length} event(s)`);
 
-if (events.length > 0) {
-  const latestEvent = events[events.length - 1];
-  const eventData = latestEvent.event.data as unknown as MintEvent;
+// Find mint events
+const mintEvents = events.filter(e => e.type === 'mint');
+console.log(`   - Mint events: ${mintEvents.length}`);
+
+if (mintEvents.length > 0) {
+  const mintEvent = mintEvents[0];
+  const eventData = mintEvent.event.data as unknown as MintEvent;
 
   console.log('\n   Mint Event Data:');
-  console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
+  if (eventData.tokenAddress) {
+    console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
+    console.log(`   - Token ID: ${eventData.tokenId.toString()}`);
+    
+    const eventCreatorCommitment = Secp256r1Commitment.fromFourFields(
+      eventData.tokenCreatorXHigh,
+      eventData.tokenCreatorXLow,
+      eventData.tokenCreatorYHigh,
+      eventData.tokenCreatorYLow
+    );
+    const eventCreatorKey = eventCreatorCommitment.toPublicKey();
+    console.log(`   - Token Creator x: ${eventCreatorKey.x.toBigInt()}`);
+    console.log(`   - Token Creator y: ${eventCreatorKey.y.toBigInt()}`);
+    const eventShaCommitment = SHACommitment.fromTwoFields(
+      eventData.authenticityCommitmentHigh,
+      eventData.authenticityCommitmentLow
+    );
+    console.log(`   - Commitment: ${eventShaCommitment.toHex()}`);
 
-  const eventCreatorCommitment = Secp256r1Commitment.fromFourFields(
-    eventData.tokenCreatorXHigh,
-    eventData.tokenCreatorXLow,
-    eventData.tokenCreatorYHigh,
-    eventData.tokenCreatorYLow
-  );
-  const eventCreatorKey = eventCreatorCommitment.toPublicKey();
-  console.log(`   - Token Creator x: ${eventCreatorKey.x.toBigInt()}`);
-  console.log(`   - Token Creator y: ${eventCreatorKey.y.toBigInt()}`);
-  const eventShaCommitment = SHACommitment.fromTwoFields(
-    eventData.authenticityCommitmentHigh,
-    eventData.authenticityCommitmentLow
-  );
-  console.log(`   - Commitment: ${eventShaCommitment.toHex()}`);
+    // Verify event data matches expected values
+    console.log('\n   Mint Event Verification:');
+    console.log(
+      `   - Token address matches: ${eventData.tokenAddress
+        .equals(tokenAccountAddress)
+        .toBoolean()}`
+    );
 
-  // Verify event data matches expected values
-  console.log('\n   Mint Event Verification:');
-  console.log(
-    `   - Token address matches: ${eventData.tokenAddress
-      .equals(tokenOwnerAccount)
-      .toBoolean()}`
-  );
-
-  // Compare the reconstructed key with the original
-  const keysMatch =
-    eventCreatorKey.x.toBigInt() === creatorPublicKey.x.toBigInt() &&
-    eventCreatorKey.y.toBigInt() === creatorPublicKey.y.toBigInt();
-  console.log(`   - Creator public key matches: ${keysMatch}`);
-  console.log(
-    `   - Commitment matches: ${eventShaCommitment.toHex() === imageHash}`
-  );
+    // Compare the reconstructed key with the original
+    const keysMatch =
+      eventCreatorKey.x.toBigInt() === creatorPublicKey.x.toBigInt() &&
+      eventCreatorKey.y.toBigInt() === creatorPublicKey.y.toBigInt();
+    console.log(`   - Creator public key matches: ${keysMatch}`);
+    console.log(
+      `   - Commitment matches: ${eventShaCommitment.toHex() === imageHash}`
+    );
+  } else {
+    console.log('   - ERROR: tokenAddress is undefined in mint event');
+    console.log('   - Event data:', eventData);
+  }
 } else {
-  console.log('   ❌ No events found!');
+  console.log('   ❌ No mint events found!');
 }
 
 // Step 10: Verify the on-chain data
@@ -192,9 +210,9 @@ const tokenId = zkApp.deriveTokenId();
 console.log(`🪙 Token ID: ${tokenId.toString()}`);
 
 // Check the token account state
-const tokenAccount = Mina.getAccount(tokenOwnerAccount, tokenId);
-const storedHigh128 = tokenAccount.zkapp?.appState[1];
-const storedLow128 = tokenAccount.zkapp?.appState[2];
+const tokenAccount = Mina.getAccount(tokenAccountAddress, tokenId);
+const storedHigh128 = tokenAccount.zkapp?.appState[0];
+const storedLow128 = tokenAccount.zkapp?.appState[1];
 
 // Reconstruct the SHA commitment from stored fields
 const shaCommitment = new SHACommitment({
@@ -203,10 +221,11 @@ const shaCommitment = new SHACommitment({
 const { high128: expectedHigh, low128: expectedLow } =
   shaCommitment.toTwoFields();
 
-const storedCreatorXHigh = tokenAccount.zkapp?.appState[3];
-const storedCreatorXLow = tokenAccount.zkapp?.appState[4];
-const storedCreatorYHigh = tokenAccount.zkapp?.appState[5];
-const storedCreatorYLow = tokenAccount.zkapp?.appState[6];
+const storedCreatorXHigh = tokenAccount.zkapp?.appState[2];
+const storedCreatorXLow = tokenAccount.zkapp?.appState[3];
+const storedCreatorYHigh = tokenAccount.zkapp?.appState[4];
+const storedCreatorYLow = tokenAccount.zkapp?.appState[5];
+// Note: Fields 6-7 are empty
 
 // Reconstruct the creator commitment from stored fields
 const expectedCreatorCommitment =
@@ -277,5 +296,6 @@ console.log('\n🎉 Example completed successfully!');
 console.log('\nSummary:');
 console.log(`- Image: ${imagePath} (${imageData.length} bytes)`);
 console.log(`- SHA-256: ${imageHash}`);
-console.log(`- Token minted to: ${tokenOwnerAccount.toBase58()}`);
+console.log(`- Token minted by: ${minterAccount.toBase58()}`);
+console.log(`- Token address: ${tokenAccountAddress.toBase58()}`);
 console.log(`- Created by: ${creatorKey.toBigInt()}`);
