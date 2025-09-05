@@ -28,7 +28,11 @@ export {
 } from './browser.js';
 
 export {
-  // Smart contract and types
+  // Smart contracts and events
   AuthenticityZkApp,
   MintEvent,
 } from './AuthenticityZkApp.js';
+
+export {
+  TokenAccountContract,
+} from './TokenAccountContract.js';
