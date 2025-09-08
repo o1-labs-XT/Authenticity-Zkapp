@@ -1,10 +1,10 @@
-// VK Hash: 2500344745592430268173091005144987605594334572818740634112428059802822161761
 import {
   SmartContract,
   state,
   State,
   Field,
   method,
+  Permissions,
 } from 'o1js';
 
 export { TokenAccountContract };
@@ -23,11 +23,38 @@ class TokenAccountContract extends SmartContract {
   @state(Field) creatorYHigh = State<Field>();       // Field 4: Creator public key Y high
   @state(Field) creatorYLow = State<Field>();        // Field 5: Creator public key Y low
 
-  /**
-   * Just verify they can be read (not zero means initialized)
-   */
-  @method async assertValid() {
-    const shaHashHigh = this.shaHashHigh.getAndRequireEquals();
-    const shaHashLow = this.shaHashLow.getAndRequireEquals();
+  init() {
+    super.init();
+
+    this.account.permissions.set({
+      ...Permissions.default(),
+      editState: Permissions.proof(), // Allow factory to update state
+      send: Permissions.impossible(), // Soulbound
+      setVerificationKey: Permissions.VerificationKey.impossibleDuringCurrentVersion(),
+    });
+  }
+
+
+  @method async setAuthenticityData(
+    shaHashHigh: Field,
+    shaHashLow: Field,
+    creatorXHigh: Field,
+    creatorXLow: Field,
+    creatorYHigh: Field,
+    creatorYLow: Field
+  ) {
+    // this.shaHashHigh.getAndRequireEquals().assertEquals(Field(0));
+    // this.shaHashLow.getAndRequireEquals().assertEquals(Field(0));
+    // this.creatorXHigh.getAndRequireEquals().assertEquals(Field(0));
+    // this.creatorXLow.getAndRequireEquals().assertEquals(Field(0));
+    // this.creatorYHigh.getAndRequireEquals().assertEquals(Field(0));
+    // this.creatorYLow.getAndRequireEquals().assertEquals(Field(0));
+
+    this.shaHashHigh.set(shaHashHigh);
+    this.shaHashLow.set(shaHashLow);
+    this.creatorXHigh.set(creatorXHigh);
+    this.creatorXLow.set(creatorXLow);
+    this.creatorYHigh.set(creatorYHigh);
+    this.creatorYLow.set(creatorYLow);
   }
 }
