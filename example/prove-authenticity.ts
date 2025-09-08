@@ -139,7 +139,15 @@ console.log('   Generated token account address:', tokenAccountAddress.toBase58(
 const storeTxn = await Mina.transaction(minterAccount, async () => {
   // Fund the new token account
   AccountUpdate.fundNewAccount(minterAccount, 1);
-  await zkApp.verifyAndStore(proof, tokenVk.verificationKey, tokenAccountAddress);
+
+  const tokenId = zkApp.deriveTokenId();
+  const child = new TokenAccountContract(
+    tokenAccountAddress,
+    tokenId
+  );
+  await child.deploy();
+
+  await zkApp.verifyAndStore(proof, tokenAccountAddress);
 });
 await storeTxn.prove();
 await storeTxn.sign([minterKey, tokenAccountPrivateKey]).send();
