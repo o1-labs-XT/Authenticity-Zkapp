@@ -105,12 +105,11 @@ describe('AuthenticityZkApp Integration Tests', () => {
     await deployTxn.prove();
     await deployTxn.sign([deployerKey, zkAppKey]).send();
 
-    const storedVkHash = zkApp.tokenAccountVkHash.get();
-    // VK hash should match the compiled TokenAccountContract
-    assert.equal(storedVkHash.toString(), '2500344745592430268173091005144987605594334572818740634112428059802822161761');
+    const admin = zkApp.admin.get();
+    assert.equal(admin.toBase58(), deployer.toBase58());
 
     console.log('✅ Contract deployed and auto-initialized');
-    console.log('  VK Hash:', storedVkHash.toString());
+    console.log('  Admin:', admin.toBase58());
   });
   it('should prepare valid authenticity proof', async () => {
     console.log('🔐 Preparing authenticity proof...');
@@ -168,7 +167,14 @@ describe('AuthenticityZkApp Integration Tests', () => {
     // Mint token to new token account address
     const mintTxn = await Mina.transaction(user1, async () => {
       AccountUpdate.fundNewAccount(user1); // Fund token account creation
-      await zkApp.verifyAndStore(testProof, tokenVk, user1TokenAccountAddress);
+
+      const tokenId = zkApp.deriveTokenId();
+      const child = new TokenAccountContract(
+        user1TokenAccountAddress,
+        tokenId
+      );
+      await child.deploy();
+      await zkApp.verifyAndStore(testProof, user1TokenAccountAddress);
     });
     await mintTxn.prove();
     // Both user (fee payer) and token account (authorizes creation) must sign
@@ -240,29 +246,43 @@ describe('AuthenticityZkApp Integration Tests', () => {
   });
 
 
-  it('should reject wrong verification key', async () => {
-    console.log('🚫 Testing VK validation...');
-
-    // Try to use wrong VK (use challenge VK instead of token VK)
-    const wrongVk = challengeVk;
+  it('should reject double initialization', async () => {
+    console.log('🚫 Testing double initialization prevention...');
 
     // Generate token account for this test
     const user2TokenAccountPrivateKey = PrivateKey.random();
     const user2TokenAccountAddress = user2TokenAccountPrivateKey.toPublicKey();
 
+    // First mint should succeed
+    const mintTxn = await Mina.transaction(user2, async () => {
+      AccountUpdate.fundNewAccount(user2);
+
+      const tokenId = zkApp.deriveTokenId();
+      const child = new TokenAccountContract(
+        user2TokenAccountAddress,
+        tokenId
+      );
+      await child.deploy();
+      await zkApp.verifyAndStore(testProof, user2TokenAccountAddress);
+    });
+    await mintTxn.prove();
+    await mintTxn.sign([user2Key, user2TokenAccountPrivateKey]).send();
+
+    console.log('✅ First token mint succeeded');
+
+    // Second attempt to mint to same address should fail (double initialization)
     try {
-      const invalidTxn = await Mina.transaction(user2, async () => {
-        AccountUpdate.fundNewAccount(user2);
-        await zkApp.verifyAndStore(testProof, wrongVk, user2TokenAccountAddress);
+      const doubleMintTxn = await Mina.transaction(user2, async () => {
+        // Try to call verifyAndStore again with same address (should fail)
+        await zkApp.verifyAndStore(testProof, user2TokenAccountAddress);
       });
-      await invalidTxn.prove();
-      // Both user (fee payer) and token account (authorizes creation) must sign
-      await invalidTxn.sign([user2Key, user2TokenAccountPrivateKey]).send();
+      await doubleMintTxn.prove();
+      await doubleMintTxn.sign([user2Key]).send();
 
       // Should not reach here
-      assert.fail('Expected transaction to fail with wrong VK');
+      assert.fail('Expected transaction to fail on double initialization');
     } catch (error) {
-      console.log('✅ Correctly rejected wrong verification key');
+      console.log('✅ Correctly rejected double initialization');
       console.log('  Error:', (error as Error).message);
       assert.ok((error as Error).message.includes('assert') || (error as Error).message.includes('failed') || (error as Error).message.includes('fromFields'));
     }
@@ -278,7 +298,14 @@ describe('AuthenticityZkApp Integration Tests', () => {
     // Mint second token to user2
     const mintTxn = await Mina.transaction(user2, async () => {
       AccountUpdate.fundNewAccount(user2);
-      await zkApp.verifyAndStore(testProof, tokenVk, user2MultiTokenAccountAddress);
+
+      const tokenId = zkApp.deriveTokenId();
+      const child = new TokenAccountContract(
+        user2MultiTokenAccountAddress,
+        tokenId
+      );
+      await child.deploy();
+      await zkApp.verifyAndStore(testProof, user2MultiTokenAccountAddress);
     });
     await mintTxn.prove();
     // Both user (fee payer) and token account (authorizes creation) must sign
