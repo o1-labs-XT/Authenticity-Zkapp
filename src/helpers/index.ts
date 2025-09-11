@@ -11,3 +11,4 @@ export {
 
 export { Secp256r1Commitment, SHACommitment } from './bytesCompressionHelpers.js';
 
+export { PackedImageChainCounters } from './stateHelpers.js';

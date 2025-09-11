@@ -19,6 +19,7 @@ export {
   generateECKeyPair,
   SHACommitment,
   Secp256r1Commitment,
+  PackedImageChainCounters
 } from './helpers/index.js';
 
 export {
