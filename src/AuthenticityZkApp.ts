@@ -9,15 +9,20 @@ import {
   Poseidon,
   Field,
   Struct,
+  State,
+  state,
+  UInt8,
 } from 'o1js';
 
-import { AuthenticityProof, AuthenticityInputs } from './AuthenticityProof.js';
+import { AuthenticityProof } from './AuthenticityProof.js';
 
 import {
   SHACommitment,
   Secp256r1Commitment,
-  Bytes32
+  Bytes32,
+  PackedImageChainCounters
 } from './helpers/index.js';
+
 
 export { MintEvent, AuthenticityZkApp };
 
@@ -26,6 +31,8 @@ export { MintEvent, AuthenticityZkApp };
  */
 class MintEvent extends Struct({
   tokenAddress: PublicKey,
+  chainId: UInt8, // Chain this image belongs to
+  imageCount: Field, // New count for this chain
   tokenCreatorXHigh: Field,
   tokenCreatorXLow: Field,
   tokenCreatorYHigh: Field,
@@ -42,6 +49,9 @@ class MintEvent extends Struct({
  *  - Creator's public key
  */
 class AuthenticityZkApp extends TokenContract {
+  // State for packed chain counters (25 chains × 10 bits each)
+  @state(Field) chainCounters = State<Field>();
+
   events = {
     mint: MintEvent,
   };
@@ -55,12 +65,22 @@ class AuthenticityZkApp extends TokenContract {
 
   @method async verifyAndStore(
     address: PublicKey, // Address of the new token account
+    chainId: UInt8, // Chain ID (0-24)
     proof: AuthenticityProof,
   ) {
-
+    chainId.assertLessThanOrEqual(UInt8.from(PackedImageChainCounters.CHAIN_COUNT - 1), 'Invalid chain ID, it must be 0-24');
 
     // Verify the provided proof using the AuthenticityProgram
     proof.verify();
+    const currentCounters = this.chainCounters.getAndRequireEquals();
+
+    const isFull = PackedImageChainCounters.isChainFull(currentCounters, chainId);
+    isFull.assertFalse('Chain has reached maximum capacity (1023 images)');
+    
+    const updatedCounters = PackedImageChainCounters.incrementChain(currentCounters, chainId);
+    this.chainCounters.set(updatedCounters);
+
+    const newCount = PackedImageChainCounters.getChainLength(updatedCounters, chainId);
 
     // Mint a token with the image metadata
     const tokenId = this.deriveTokenId();
@@ -83,9 +103,11 @@ class AuthenticityZkApp extends TokenContract {
     const { xHigh128, xLow128, yHigh128, yLow128 } =
       creatorCommitment.toFourFields();
 
-    // Emit event with compressed fields
+    // Emit event with compressed fields and chain information
     this.emitEvent('mint', {
       tokenAddress: address,
+      chainId,
+      imageCount: newCount.value,
       tokenCreatorXHigh: xHigh128,
       tokenCreatorXLow: xLow128,
       tokenCreatorYHigh: yHigh128,
