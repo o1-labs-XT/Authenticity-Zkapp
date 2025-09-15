@@ -4,6 +4,7 @@ import {
   FinalRoundInputs,
   prepareImageVerification,
   AuthenticityZkApp,
+  PackedImageChainCounters,
   SHACommitment,
   hashImageOffCircuit,
   computeOnChainCommitment,
@@ -13,7 +14,7 @@ import {
   Secp256r1,
   Secp256r1Commitment,
 } from '../src/index.js';
-import { PrivateKey, Mina, AccountUpdate } from 'o1js';
+import { PrivateKey, Mina, AccountUpdate, UInt8 } from 'o1js';
 import fs from 'fs';
 
 console.log('🐱 Authenticity zkApp Example\n');
@@ -123,19 +124,66 @@ const deployTxn = await Mina.transaction(deployerAccount, async () => {
 });
 await deployTxn.prove();
 await deployTxn.sign([deployerKey, zkAppKey]).send();
-console.log('✅ Contract deployed\n');
+console.log('✅ Contract deployed with initialized chain counters\n');
 
 // Step 8: Verify and store image metadata on-chain
-console.log('8️⃣ Storing image authenticity on-chain...');
-const storeTxn = await Mina.transaction(payerAccount, async () => {
-  // Fund the token account
-  AccountUpdate.fundNewAccount(payerAccount);
+console.log('8️⃣ Storing image authenticity on-chain with multiple image chains...');
 
-  await zkApp.verifyAndStore(tokenOwnerAccount, proof);
+// Show initial chain state
+console.log('\n   📊 Initial Chain State:');
+const initialTotalCount = PackedImageChainCounters.getTotalImageCount(zkApp.chainCounters.getAndRequireEquals());
+console.log(`   Total images across all chains: ${Number(initialTotalCount.toBigint())}`);
+
+// Mint image to Chain 0
+console.log('\n   🌱 Minting to Chain 0...');
+const chain0Txn = await Mina.transaction(payerAccount, async () => {
+  AccountUpdate.fundNewAccount(payerAccount);
+  await zkApp.verifyAndStore(tokenOwnerAccount, UInt8.from(0), proof);
 });
-await storeTxn.prove();
-await storeTxn.sign([payerKey, tokenOwnerKey]).send();
-console.log('✅ Image authenticity stored on-chain\n');
+await chain0Txn.prove();
+await chain0Txn.sign([payerKey, tokenOwnerKey]).send();
+
+// Create another token owner, for Chain 5
+const tokenOwner2Key = Local.testAccounts[4].key;
+const tokenOwner2Account = tokenOwner2Key.toPublicKey();
+
+// Mint image to Chain 5
+console.log('   ☕ Minting to Chain 5...');
+const chain5Txn = await Mina.transaction(payerAccount, async () => {
+  AccountUpdate.fundNewAccount(payerAccount);
+  await zkApp.verifyAndStore(tokenOwner2Account, UInt8.from(5), proof);
+});
+await chain5Txn.prove();
+await chain5Txn.sign([payerKey, tokenOwner2Key]).send();
+
+// Create another token owner, for Chain 24 (max chain to test full range)
+const tokenOwner3Key = Local.testAccounts[5].key;
+const tokenOwner3Account = tokenOwner3Key.toPublicKey();
+
+// Mint image to Chain 24
+console.log('   🔚 Minting to Chain 24...');
+const chain24Txn = await Mina.transaction(payerAccount, async () => {
+  AccountUpdate.fundNewAccount(payerAccount);
+  await zkApp.verifyAndStore(tokenOwner3Account, UInt8.from(24), proof);
+});
+await chain24Txn.prove();
+await chain24Txn.sign([payerKey, tokenOwner3Key]).send();
+
+console.log('✅ All chain mints completed!\n');
+
+// Display chain counter statistics
+console.log('📊 Chain Counter Statistics:');
+const finalTotalCount = PackedImageChainCounters.getTotalImageCount(zkApp.chainCounters.getAndRequireEquals());
+const chain0Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(0));
+const chain5Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(5));
+const chain24Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(24));
+const chain2Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(2)); // Should be 0
+
+console.log(`   Total images: ${Number(finalTotalCount.toBigint())}`);
+console.log(`   Chain 0 count: ${Number(chain0Count.toBigint())}`);
+console.log(`   Chain 5 count: ${Number(chain5Count.toBigint())}`);
+console.log(`   Chain 24 count: ${Number(chain24Count.toBigint())}`);
+console.log(`   Chain 2 count (unused): ${Number(chain2Count.toBigint())}`);
 
 // Step 9: Verify mint event was emitted correctly
 console.log('9️⃣ Verifying mint event...');
@@ -147,7 +195,7 @@ if (events.length > 0) {
   const eventData = latestEvent.event.data as unknown as MintEvent;
 
   console.log('\n   Mint Event Data:');
-  console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
+    console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
 
   const eventCreatorCommitment = Secp256r1Commitment.fromFourFields(
     eventData.tokenCreatorXHigh,
@@ -158,11 +206,11 @@ if (events.length > 0) {
   const eventCreatorKey = eventCreatorCommitment.toPublicKey();
   console.log(`   - Token Creator x: ${eventCreatorKey.x.toBigInt()}`);
   console.log(`   - Token Creator y: ${eventCreatorKey.y.toBigInt()}`);
-  const eventShaCommitment = SHACommitment.fromTwoFields(
-    eventData.authenticityCommitmentHigh,
-    eventData.authenticityCommitmentLow
-  );
-  console.log(`   - Commitment: ${eventShaCommitment.toHex()}`);
+    const eventShaCommitment = SHACommitment.fromTwoFields(
+      eventData.authenticityCommitmentHigh,
+      eventData.authenticityCommitmentLow
+    );
+    console.log(`   - Commitment: ${eventShaCommitment.toHex()}`);
 
   // Verify event data matches expected values
   console.log('\n   Mint Event Verification:');
@@ -277,5 +325,13 @@ console.log('\n🎉 Example completed successfully!');
 console.log('\nSummary:');
 console.log(`- Image: ${imagePath} (${imageData.length} bytes)`);
 console.log(`- SHA-256: ${imageHash}`);
-console.log(`- Token minted to: ${tokenOwnerAccount.toBase58()}`);
 console.log(`- Created by: ${creatorKey.toBigInt()}`);
+console.log(`\n🔗 Chain Storage Results:`);
+console.log(`- Total chains deployed: 3 (chains 0, 5, 24)`);
+console.log(`- Total images minted: ${Number(finalTotalCount.toBigint())}`);
+console.log(`- Chain 0: ${Number(chain0Count.toBigint())} images`);
+console.log(`- Chain 5: ${Number(chain5Count.toBigint())} images`);
+console.log(`- Chain 24: ${Number(chain24Count.toBigint())} images`);
+console.log(`- Token ID: Single shared tokenId (${tokenId.toString()})`);
+console.log(`- Storage efficiency: ${(PackedImageChainCounters.TOTAL_BITS/254*100).toFixed(1)}% (${PackedImageChainCounters.TOTAL_BITS}/254 bits)`);
+console.log(`- Max capacity: ${PackedImageChainCounters.CHAIN_COUNT} chains × ${PackedImageChainCounters.MAX_PER_CHAIN} images = ${PackedImageChainCounters.CHAIN_COUNT * PackedImageChainCounters.MAX_PER_CHAIN} total images`);
