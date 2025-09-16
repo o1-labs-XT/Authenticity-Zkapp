@@ -31,5 +31,5 @@ export {
 export {
   // Smart contract and types
   AuthenticityZkApp,
-  MintEvent,
+  ImageMintAction,
 } from './AuthenticityZkApp.js';

@@ -4,11 +4,11 @@ import {
   FinalRoundInputs,
   prepareImageVerification,
   AuthenticityZkApp,
+  ImageMintAction,
   PackedImageChainCounters,
   SHACommitment,
   hashImageOffCircuit,
   computeOnChainCommitment,
-  MintEvent,
   generateECKeyPair,
   Ecdsa,
   Secp256r1,
@@ -185,51 +185,74 @@ console.log(`   Chain 5 count: ${Number(chain5Count.toBigint())}`);
 console.log(`   Chain 24 count: ${Number(chain24Count.toBigint())}`);
 console.log(`   Chain 2 count (unused): ${Number(chain2Count.toBigint())}`);
 
-// Step 9: Verify mint event was emitted correctly
-console.log('9️⃣ Verifying mint event...');
-const events = await zkApp.fetchEvents();
-console.log(`   Found ${events.length} event(s)`);
+// Step 9: Verify mint action was dispatched correctly
+console.log('9️⃣ Verifying mint action...');
 
-if (events.length > 0) {
-  const latestEvent = events[events.length - 1];
-  const eventData = latestEvent.event.data as unknown as MintEvent;
+// For LocalBlockchain, we can use getActions() directly
+// For real networks, we would need fetchActions() with archive node configuration
+const actions = await zkApp.reducer.getActions();
 
-  console.log('\n   Mint Event Data:');
-    console.log(`   - Token Address: ${eventData.tokenAddress.toBase58()}`);
+let totalActions = 0;
+let lastAction: ImageMintAction | null = null;
 
-  const eventCreatorCommitment = Secp256r1Commitment.fromFourFields(
-    eventData.tokenCreatorXHigh,
-    eventData.tokenCreatorXLow,
-    eventData.tokenCreatorYHigh,
-    eventData.tokenCreatorYLow
+// Iterate through the MerkleList of action blocks
+const outerIterator = actions.startIterating();
+while (!outerIterator.isAtEnd().toBoolean()) {
+  const actionBlock = outerIterator.next();
+
+  // Iterate through actions in this block
+  const innerIterator = actionBlock.startIterating();
+  while (!innerIterator.isAtEnd().toBoolean()) {
+    const action = innerIterator.next() as ImageMintAction;
+    totalActions++;
+    lastAction = action; // Keep updating to get the latest
+  }
+}
+
+console.log(`   Total actions dispatched: ${totalActions}`);
+
+if (lastAction) {
+  console.log('\n   Latest Action Data:');
+  console.log(`   - Token Address: ${lastAction.tokenAddress.toBase58()}`);
+  console.log(`   - Chain ID: ${Number(lastAction.chainId.toBigInt())}`);
+  console.log(`   - Image Count: ${Number(lastAction.imageCount.toBigInt())}`);
+
+  // Reconstruct creator public key from compressed fields
+  const actionCreatorCommitment = Secp256r1Commitment.fromFourFields(
+    lastAction.tokenCreatorXHigh,
+    lastAction.tokenCreatorXLow,
+    lastAction.tokenCreatorYHigh,
+    lastAction.tokenCreatorYLow
   );
-  const eventCreatorKey = eventCreatorCommitment.toPublicKey();
-  console.log(`   - Token Creator x: ${eventCreatorKey.x.toBigInt()}`);
-  console.log(`   - Token Creator y: ${eventCreatorKey.y.toBigInt()}`);
-    const eventShaCommitment = SHACommitment.fromTwoFields(
-      eventData.authenticityCommitmentHigh,
-      eventData.authenticityCommitmentLow
-    );
-    console.log(`   - Commitment: ${eventShaCommitment.toHex()}`);
+  const actionCreatorKey = actionCreatorCommitment.toPublicKey();
+  console.log(`   - Token Creator x: ${actionCreatorKey.x.toBigInt()}`);
+  console.log(`   - Token Creator y: ${actionCreatorKey.y.toBigInt()}`);
 
-  // Verify event data matches expected values
-  console.log('\n   Mint Event Verification:');
+  // Reconstruct SHA commitment from compressed fields
+  const actionShaCommitment = SHACommitment.fromTwoFields(
+    lastAction.authenticityCommitmentHigh,
+    lastAction.authenticityCommitmentLow
+  );
+  console.log(`   - Commitment: ${actionShaCommitment.toHex()}`);
+
+  // Verify action data matches expected values (check against the last mint which was to tokenOwner3Account)
+  console.log('\n   Mint Action Verification:');
   console.log(
-    `   - Token address matches: ${eventData.tokenAddress
-      .equals(tokenOwnerAccount)
+    `   - Token address matches: ${lastAction.tokenAddress
+      .equals(tokenOwner3Account)
       .toBoolean()}`
   );
 
   // Compare the reconstructed key with the original
   const keysMatch =
-    eventCreatorKey.x.toBigInt() === creatorPublicKey.x.toBigInt() &&
-    eventCreatorKey.y.toBigInt() === creatorPublicKey.y.toBigInt();
+    actionCreatorKey.x.toBigInt() === creatorPublicKey.x.toBigInt() &&
+    actionCreatorKey.y.toBigInt() === creatorPublicKey.y.toBigInt();
   console.log(`   - Creator public key matches: ${keysMatch}`);
   console.log(
-    `   - Commitment matches: ${eventShaCommitment.toHex() === imageHash}`
+    `   - Commitment matches: ${actionShaCommitment.toHex() === imageHash}`
   );
 } else {
-  console.log('   ❌ No events found!');
+  console.log('   ❌ No actions found!');
 }
 
 // Step 10: Verify the on-chain data

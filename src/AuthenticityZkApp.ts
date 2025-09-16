@@ -12,6 +12,8 @@ import {
   State,
   state,
   UInt8,
+  Reducer,
+  SmartContract,
 } from 'o1js';
 
 import { AuthenticityProof } from './AuthenticityProof.js';
@@ -24,22 +26,20 @@ import {
 } from './helpers/index.js';
 
 
-export { MintEvent, AuthenticityZkApp };
+export { AuthenticityZkApp, ImageMintAction };
 
-/**
- * Event emitted when a new authenticity token is minted
- */
-class MintEvent extends Struct({
-  tokenAddress: PublicKey,
-  chainId: UInt8, // Chain this image belongs to
-  imageCount: Field, // New count for this chain
-  tokenCreatorXHigh: Field,
-  tokenCreatorXLow: Field,
-  tokenCreatorYHigh: Field,
-  tokenCreatorYLow: Field,
-  authenticityCommitmentHigh: Field, // High 128 bits of SHA
-  authenticityCommitmentLow: Field, // Low 128 bits of SHA
-}) {}
+// Action dispatched when a new authenticity token is minted
+class ImageMintAction extends Struct({
+  tokenAddress: PublicKey,             // Token mint address
+  chainId: UInt8,                      // Chain ID (0-24)
+  imageCount: Field,                   // New count for this chain after mint
+  tokenCreatorXHigh: Field,            // Creator public key X coordinate high 128 bits
+  tokenCreatorXLow: Field,             // Creator public key X coordinate low 128 bits
+  tokenCreatorYHigh: Field,            // Creator public key Y coordinate high 128 bits
+  tokenCreatorYLow: Field,             // Creator public key Y coordinate low 128 bits
+  authenticityCommitmentHigh: Field,   // SHA commitment high 128 bits
+  authenticityCommitmentLow: Field,    // SHA commitment low 128 bits
+}) { }
 
 /**
  * ZkApp that verifies authenticity proofs and stores metadata on-chain.
@@ -52,9 +52,7 @@ class AuthenticityZkApp extends TokenContract {
   // State for packed chain counters (25 chains × 10 bits each)
   @state(Field) chainCounters = State<Field>();
 
-  events = {
-    mint: MintEvent,
-  };
+  reducer = Reducer({ actionType: ImageMintAction });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async approveBase(forest: AccountUpdateForest) {
@@ -76,7 +74,7 @@ class AuthenticityZkApp extends TokenContract {
 
     const isFull = PackedImageChainCounters.isChainFull(currentCounters, chainId);
     isFull.assertFalse('Chain has reached maximum capacity (1023 images)');
-    
+
     const updatedCounters = PackedImageChainCounters.incrementChain(currentCounters, chainId);
     this.chainCounters.set(updatedCounters);
 
@@ -103,8 +101,8 @@ class AuthenticityZkApp extends TokenContract {
     const { xHigh128, xLow128, yHigh128, yLow128 } =
       creatorCommitment.toFourFields();
 
-    // Emit event with compressed fields and chain information
-    this.emitEvent('mint', {
+    // Dispatch action with compressed fields and chain information
+    this.reducer.dispatch(new ImageMintAction({
       tokenAddress: address,
       chainId,
       imageCount: newCount.value,
@@ -114,7 +112,7 @@ class AuthenticityZkApp extends TokenContract {
       tokenCreatorYLow: yLow128,
       authenticityCommitmentHigh: shaHigh,
       authenticityCommitmentLow: shaLow,
-    } as MintEvent);
+    }));
 
     // Set the on-chain state of the token account
     update.body.update.appState[0] = {
