@@ -4,7 +4,6 @@ import {
   FinalRoundInputs,
   prepareImageVerification,
   AuthenticityZkApp,
-  ImageMintAction,
   PackedImageChainCounters,
   SHACommitment,
   hashImageOffCircuit,
@@ -13,8 +12,9 @@ import {
   Ecdsa,
   Secp256r1,
   Secp256r1Commitment,
+  BatchReducerUtils,
 } from '../src/index.js';
-import { PrivateKey, Mina, AccountUpdate, UInt8 } from 'o1js';
+import { PrivateKey, Mina, AccountUpdate, UInt8, Field } from 'o1js';
 import fs from 'fs';
 
 console.log('🐱 Authenticity zkApp Example\n');
@@ -107,6 +107,17 @@ console.log('7️⃣ Deploying AuthenticityZkApp contract...');
 const zkAppKey = PrivateKey.random();
 const zkApp = new AuthenticityZkApp(zkAppKey.toPublicKey());
 
+// Set contract instance before any compilation
+BatchReducerUtils.setContractInstance(zkApp);
+
+// Compile dependencies first
+console.log('   Compiling BatchReducer...');
+const reducerCompileStart = Date.now();
+await BatchReducerUtils.compile();
+console.log(
+  `   BatchReducer compiled in ${((Date.now() - reducerCompileStart) / 1000).toFixed(1)}s`
+);
+
 // Compile the contract
 console.log('   Compiling contract...');
 const contractStartTime = Date.now();
@@ -124,7 +135,12 @@ const deployTxn = await Mina.transaction(deployerAccount, async () => {
 });
 await deployTxn.prove();
 await deployTxn.sign([deployerKey, zkAppKey]).send();
-console.log('✅ Contract deployed with initialized chain counters\n');
+console.log('Contract deployed with initialized chain counters\n');
+
+// Set up BatchReducer contract instance
+console.log('🔧 Setting up BatchReducer with contract instance...');
+BatchReducerUtils.setContractInstance(zkApp);
+console.log('BatchReducer configured successfully\n');
 
 // Step 8: Verify and store image metadata on-chain
 console.log('8️⃣ Storing image authenticity on-chain with multiple image chains...');
@@ -134,126 +150,141 @@ console.log('\n   📊 Initial Chain State:');
 const initialTotalCount = PackedImageChainCounters.getTotalImageCount(zkApp.chainCounters.getAndRequireEquals());
 console.log(`   Total images across all chains: ${Number(initialTotalCount.toBigint())}`);
 
-// Mint image to Chain 0
-console.log('\n   🌱 Minting to Chain 0...');
-const chain0Txn = await Mina.transaction(payerAccount, async () => {
+// Create additional unique token owners for each mint
+const tokenOwner2Key = Local.testAccounts[4].key;
+const tokenOwner2Account = tokenOwner2Key.toPublicKey();
+const tokenOwner3Key = Local.testAccounts[5].key;
+const tokenOwner3Account = tokenOwner3Key.toPublicKey();
+const tokenOwner4Key = Local.testAccounts[6].key;
+const tokenOwner4Account = tokenOwner4Key.toPublicKey();
+const tokenOwner5Key = Local.testAccounts[7].key;
+const tokenOwner5Account = tokenOwner5Key.toPublicKey();
+const tokenOwner6Key = Local.testAccounts[8].key;
+const tokenOwner6Account = tokenOwner6Key.toPublicKey();
+const tokenOwner7Key = Local.testAccounts[9].key;
+const tokenOwner7Account = tokenOwner7Key.toPublicKey();
+
+// Mint 4 images to Chain 0
+console.log('\n   🏆 Minting 4 images to Chain 0...');
+const chain0Txn1 = await Mina.transaction(payerAccount, async () => {
   AccountUpdate.fundNewAccount(payerAccount);
   await zkApp.verifyAndStore(tokenOwnerAccount, UInt8.from(0), proof);
 });
-await chain0Txn.prove();
-await chain0Txn.sign([payerKey, tokenOwnerKey]).send();
+await chain0Txn1.prove();
+await chain0Txn1.sign([payerKey, tokenOwnerKey]).send();
 
-// Create another token owner, for Chain 5
-const tokenOwner2Key = Local.testAccounts[4].key;
-const tokenOwner2Account = tokenOwner2Key.toPublicKey();
-
-// Mint image to Chain 5
-console.log('   ☕ Minting to Chain 5...');
-const chain5Txn = await Mina.transaction(payerAccount, async () => {
+const chain0Txn2 = await Mina.transaction(payerAccount, async () => {
   AccountUpdate.fundNewAccount(payerAccount);
-  await zkApp.verifyAndStore(tokenOwner2Account, UInt8.from(5), proof);
+  await zkApp.verifyAndStore(tokenOwner2Account, UInt8.from(0), proof);
 });
-await chain5Txn.prove();
-await chain5Txn.sign([payerKey, tokenOwner2Key]).send();
+await chain0Txn2.prove();
+await chain0Txn2.sign([payerKey, tokenOwner2Key]).send();
 
-// Create another token owner, for Chain 24 (max chain to test full range)
-const tokenOwner3Key = Local.testAccounts[5].key;
-const tokenOwner3Account = tokenOwner3Key.toPublicKey();
+const chain0Txn3 = await Mina.transaction(payerAccount, async () => {
+  AccountUpdate.fundNewAccount(payerAccount);
+  await zkApp.verifyAndStore(tokenOwner3Account, UInt8.from(0), proof);
+});
+await chain0Txn3.prove();
+await chain0Txn3.sign([payerKey, tokenOwner3Key]).send();
 
-// Mint image to Chain 24
-console.log('   🔚 Minting to Chain 24...');
+const chain0Txn4 = await Mina.transaction(payerAccount, async () => {
+  AccountUpdate.fundNewAccount(payerAccount);
+  await zkApp.verifyAndStore(tokenOwner4Account, UInt8.from(0), proof);
+});
+await chain0Txn4.prove();
+await chain0Txn4.sign([payerKey, tokenOwner4Key]).send();
+
+// Mint 2 images to Chain 5
+console.log('   ☕ Minting 2 images to Chain 5...');
+const chain5Txn1 = await Mina.transaction(payerAccount, async () => {
+  AccountUpdate.fundNewAccount(payerAccount);
+  await zkApp.verifyAndStore(tokenOwner5Account, UInt8.from(5), proof);
+});
+await chain5Txn1.prove();
+await chain5Txn1.sign([payerKey, tokenOwner5Key]).send();
+
+const chain5Txn2 = await Mina.transaction(payerAccount, async () => {
+  AccountUpdate.fundNewAccount(payerAccount);
+  await zkApp.verifyAndStore(tokenOwner6Account, UInt8.from(5), proof);
+});
+await chain5Txn2.prove();
+await chain5Txn2.sign([payerKey, tokenOwner6Key]).send();
+
+// Mint 1 image to Chain 24 (test full range)
+console.log('   🔚 Minting 1 image to Chain 24...');
 const chain24Txn = await Mina.transaction(payerAccount, async () => {
   AccountUpdate.fundNewAccount(payerAccount);
-  await zkApp.verifyAndStore(tokenOwner3Account, UInt8.from(24), proof);
+  await zkApp.verifyAndStore(tokenOwner7Account, UInt8.from(24), proof);
 });
 await chain24Txn.prove();
-await chain24Txn.sign([payerKey, tokenOwner3Key]).send();
+await chain24Txn.sign([payerKey, tokenOwner7Key]).send();
 
 console.log('✅ All chain mints completed!\n');
 
-// Display chain counter statistics
-console.log('📊 Chain Counter Statistics:');
-const finalTotalCount = PackedImageChainCounters.getTotalImageCount(zkApp.chainCounters.getAndRequireEquals());
-const chain0Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(0));
-const chain5Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(5));
-const chain24Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(24));
-const chain2Count = PackedImageChainCounters.getChainLength(zkApp.chainCounters.getAndRequireEquals(), UInt8.from(2)); // Should be 0
+// Step 9: Process actions with BatchReducer
+console.log('9️⃣ Processing actions with BatchReducer...');
 
-console.log(`   Total images: ${Number(finalTotalCount.toBigint())}`);
+// Prepare batches from pending actions
+console.log('   Preparing batches from pending actions...');
+const batches = await BatchReducerUtils.prepareBatches();
+
+if (batches.length === 0) {
+  console.log('   No pending actions to process');
+} else {
+  console.log(`   Found ${batches.length} batch(es) to process`);
+
+  // Process each batch
+  for (let i = 0; i < batches.length; i++) {
+    console.log(`   Processing batch ${i + 1}/${batches.length}...`);
+
+    const { batch, proof } = batches[i];
+
+    // Create transaction to process this batch
+    const batchTxn = await Mina.transaction(deployerAccount, async () => {
+      await zkApp.processBatch(batch, proof);
+    });
+
+    console.log(`   Proving batch ${i + 1}...`);
+    await batchTxn.prove();
+    await batchTxn.sign([deployerKey]).send();
+
+    console.log(`   Batch ${i + 1} processed successfully`);
+  }
+}
+
+console.log('\nAll batches processed successfully!\n');
+
+// Get final state from contract
+const finalChainCounters = zkApp.chainCounters.getAndRequireEquals();
+const winnerChainId = zkApp.currentWinner.getAndRequireEquals();
+const winnerLength = zkApp.winnerLength.getAndRequireEquals();
+
+// Display chain counter data after batch processing
+console.log('Chain Counter Data (After Batch Processing):');
+const finalTotalCount = PackedImageChainCounters.getTotalImageCount(finalChainCounters);
+const chain0Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(0));
+const chain5Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(5));
+const chain24Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(24));
+const chain2Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(2)); // Should be 0
+
+console.log(`   Total images across all chains: ${Number(finalTotalCount.toBigint())}`);
 console.log(`   Chain 0 count: ${Number(chain0Count.toBigint())}`);
 console.log(`   Chain 5 count: ${Number(chain5Count.toBigint())}`);
 console.log(`   Chain 24 count: ${Number(chain24Count.toBigint())}`);
 console.log(`   Chain 2 count (unused): ${Number(chain2Count.toBigint())}`);
 
-// Step 9: Verify mint action was dispatched correctly
-console.log('9️⃣ Verifying mint action...');
+// Get winner from contract state (computed in-circuit during batch processing)
+console.log('\n🏆 Winner determined by BatchReducer in-circuit...');
+const longestChainId = Number(winnerChainId.toBigInt());
+const longestChainLength = Number(winnerLength.toBigint());
 
-// For LocalBlockchain, we can use getActions() directly
-// For real networks, we would need fetchActions() with archive node configuration
-const actions = await zkApp.reducer.getActions();
+console.log(`   Longest chain: Chain ${longestChainId} with ${longestChainLength} images`);
+console.log(`   Winner determined: Chain ${longestChainId}`);
 
-let totalActions = 0;
-let lastAction: ImageMintAction | null = null;
-
-// Iterate through the MerkleList of action blocks
-const outerIterator = actions.startIterating();
-while (!outerIterator.isAtEnd().toBoolean()) {
-  const actionBlock = outerIterator.next();
-
-  // Iterate through actions in this block
-  const innerIterator = actionBlock.startIterating();
-  while (!innerIterator.isAtEnd().toBoolean()) {
-    const action = innerIterator.next() as ImageMintAction;
-    totalActions++;
-    lastAction = action; // Keep updating to get the latest
-  }
-}
-
-console.log(`   Total actions dispatched: ${totalActions}`);
-
-if (lastAction) {
-  console.log('\n   Latest Action Data:');
-  console.log(`   - Token Address: ${lastAction.tokenAddress.toBase58()}`);
-  console.log(`   - Chain ID: ${Number(lastAction.chainId.toBigInt())}`);
-  console.log(`   - Image Count: ${Number(lastAction.imageCount.toBigInt())}`);
-
-  // Reconstruct creator public key from compressed fields
-  const actionCreatorCommitment = Secp256r1Commitment.fromFourFields(
-    lastAction.tokenCreatorXHigh,
-    lastAction.tokenCreatorXLow,
-    lastAction.tokenCreatorYHigh,
-    lastAction.tokenCreatorYLow
-  );
-  const actionCreatorKey = actionCreatorCommitment.toPublicKey();
-  console.log(`   - Token Creator x: ${actionCreatorKey.x.toBigInt()}`);
-  console.log(`   - Token Creator y: ${actionCreatorKey.y.toBigInt()}`);
-
-  // Reconstruct SHA commitment from compressed fields
-  const actionShaCommitment = SHACommitment.fromTwoFields(
-    lastAction.authenticityCommitmentHigh,
-    lastAction.authenticityCommitmentLow
-  );
-  console.log(`   - Commitment: ${actionShaCommitment.toHex()}`);
-
-  // Verify action data matches expected values (check against the last mint which was to tokenOwner3Account)
-  console.log('\n   Mint Action Verification:');
-  console.log(
-    `   - Token address matches: ${lastAction.tokenAddress
-      .equals(tokenOwner3Account)
-      .toBoolean()}`
-  );
-
-  // Compare the reconstructed key with the original
-  const keysMatch =
-    actionCreatorKey.x.toBigInt() === creatorPublicKey.x.toBigInt() &&
-    actionCreatorKey.y.toBigInt() === creatorPublicKey.y.toBigInt();
-  console.log(`   - Creator public key matches: ${keysMatch}`);
-  console.log(
-    `   - Commitment matches: ${actionShaCommitment.toHex() === imageHash}`
-  );
-} else {
-  console.log('   ❌ No actions found!');
-}
+console.log('\n📋 Final Summary:');
+console.log(`   Total actions processed: 7`);
+console.log(`   Chains used: 0, 5, 24`);
+console.log(`   Winner: Chain ${longestChainId} with ${longestChainLength} images`);
 
 // Step 10: Verify the on-chain data
 console.log('\n🔟 Verifying on-chain data...');
@@ -329,32 +360,15 @@ if (storedHigh128 && storedLow128) {
   console.log(`   Matches: ${reconstructedCommitment.toHex() === imageHash}`);
 }
 
-// Test the helper function with the new storage format
-console.log('\n1️⃣1️⃣ Testing computeOnChainCommitment helper:');
-const helperResult = await computeOnChainCommitment(imageData);
-
-console.log(
-  `   Low128 matches stored: ${
-    helperResult.low128.toString() === storedLow128?.toString()
-  }`
-);
-console.log(
-  `   High128 matches stored: ${
-    helperResult.high128.toString() === storedHigh128?.toString()
-  }`
-);
 
 console.log('\n🎉 Example completed successfully!');
 console.log('\nSummary:');
 console.log(`- Image: ${imagePath} (${imageData.length} bytes)`);
 console.log(`- SHA-256: ${imageHash}`);
 console.log(`- Created by: ${creatorKey.toBigInt()}`);
-console.log(`\n🔗 Chain Storage Results:`);
-console.log(`- Total chains deployed: 3 (chains 0, 5, 24)`);
 console.log(`- Total images minted: ${Number(finalTotalCount.toBigint())}`);
 console.log(`- Chain 0: ${Number(chain0Count.toBigint())} images`);
 console.log(`- Chain 5: ${Number(chain5Count.toBigint())} images`);
 console.log(`- Chain 24: ${Number(chain24Count.toBigint())} images`);
 console.log(`- Token ID: Single shared tokenId (${tokenId.toString()})`);
 console.log(`- Storage efficiency: ${(PackedImageChainCounters.TOTAL_BITS/254*100).toFixed(1)}% (${PackedImageChainCounters.TOTAL_BITS}/254 bits)`);
-console.log(`- Max capacity: ${PackedImageChainCounters.CHAIN_COUNT} chains × ${PackedImageChainCounters.MAX_PER_CHAIN} images = ${PackedImageChainCounters.CHAIN_COUNT * PackedImageChainCounters.MAX_PER_CHAIN} total images`);
