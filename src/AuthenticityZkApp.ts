@@ -6,15 +6,20 @@ import {
   AccountUpdate,
   AccountUpdateForest,
   Bool,
-  Poseidon,
   Field,
-  Struct,
   State,
   state,
   UInt8,
-  Reducer,
-  SmartContract,
+  UInt32,
+  Experimental,
 } from 'o1js';
+
+import {
+  ChainBatch,
+  ChainBatchProof,
+  BatchReducerUtils,
+  ImageMintAction
+} from './BatchReducer.js';
 
 import { AuthenticityProof } from './AuthenticityProof.js';
 
@@ -26,20 +31,7 @@ import {
 } from './helpers/index.js';
 
 
-export { AuthenticityZkApp, ImageMintAction };
-
-// Action dispatched when a new authenticity token is minted
-class ImageMintAction extends Struct({
-  tokenAddress: PublicKey,             // Token mint address
-  chainId: UInt8,                      // Chain ID (0-24)
-  imageCount: Field,                   // New count for this chain after mint
-  tokenCreatorXHigh: Field,            // Creator public key X coordinate high 128 bits
-  tokenCreatorXLow: Field,             // Creator public key X coordinate low 128 bits
-  tokenCreatorYHigh: Field,            // Creator public key Y coordinate high 128 bits
-  tokenCreatorYLow: Field,             // Creator public key Y coordinate low 128 bits
-  authenticityCommitmentHigh: Field,   // SHA commitment high 128 bits
-  authenticityCommitmentLow: Field,    // SHA commitment low 128 bits
-}) { }
+export { AuthenticityZkApp };
 
 /**
  * ZkApp that verifies authenticity proofs and stores metadata on-chain.
@@ -52,7 +44,24 @@ class AuthenticityZkApp extends TokenContract {
   // State for packed chain counters (25 chains × 10 bits each)
   @state(Field) chainCounters = State<Field>();
 
-  reducer = Reducer({ actionType: ImageMintAction });
+  // BatchReducer state fields
+  @state(Field) actionState = State(Experimental.BatchReducer.initialActionState);
+  @state(Field) actionStack = State(Experimental.BatchReducer.initialActionStack);
+
+  // Winner state (computed from chain counters after batch processing)
+  @state(UInt8) currentWinner = State<UInt8>();
+  @state(UInt32) winnerLength = State<UInt32>();
+
+  events = {
+    chainReduced: Field,
+  };
+
+  // Initialize contract
+  init() {
+    super.init();
+    this.currentWinner.set(UInt8.from(0));
+    this.winnerLength.set(UInt32.from(0));
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async approveBase(forest: AccountUpdateForest) {
@@ -70,15 +79,6 @@ class AuthenticityZkApp extends TokenContract {
 
     // Verify the provided proof using the AuthenticityProgram
     proof.verify();
-    const currentCounters = this.chainCounters.getAndRequireEquals();
-
-    const isFull = PackedImageChainCounters.isChainFull(currentCounters, chainId);
-    isFull.assertFalse('Chain has reached maximum capacity (1023 images)');
-
-    const updatedCounters = PackedImageChainCounters.incrementChain(currentCounters, chainId);
-    this.chainCounters.set(updatedCounters);
-
-    const newCount = PackedImageChainCounters.getChainLength(updatedCounters, chainId);
 
     // Mint a token with the image metadata
     const tokenId = this.deriveTokenId();
@@ -101,18 +101,19 @@ class AuthenticityZkApp extends TokenContract {
     const { xHigh128, xLow128, yHigh128, yLow128 } =
       creatorCommitment.toFourFields();
 
-    // Dispatch action with compressed fields and chain information
-    this.reducer.dispatch(new ImageMintAction({
+    // Dispatch action using BatchReducer
+    const action = new ImageMintAction({
       tokenAddress: address,
       chainId,
-      imageCount: newCount.value,
       tokenCreatorXHigh: xHigh128,
       tokenCreatorXLow: xLow128,
       tokenCreatorYHigh: yHigh128,
       tokenCreatorYLow: yLow128,
       authenticityCommitmentHigh: shaHigh,
       authenticityCommitmentLow: shaLow,
-    }));
+    });
+
+    BatchReducerUtils.dispatchAction(action);
 
     // Set the on-chain state of the token account
     update.body.update.appState[0] = {
@@ -143,5 +144,29 @@ class AuthenticityZkApp extends TokenContract {
       isSome: Bool(true),
       value: yLow128, // Creator's public key y low 128 bits
     };
+  }
+
+  // Process a batch of actions using BatchReducer
+  @method async processBatch(batch: ChainBatch, proof: ChainBatchProof) {
+    // Get current state
+    const currentCounters = this.chainCounters.getAndRequireEquals();
+
+    // Process the batch
+    const newCounters = BatchReducerUtils.processActionsInCircuit(
+      batch,
+      proof,
+      currentCounters
+    );
+
+    // Compute winner from final chain counters
+    const { winnerChainId, winnerLength } = BatchReducerUtils.computeWinner(newCounters);
+
+    // Update all state
+    this.chainCounters.set(newCounters);
+    this.currentWinner.set(winnerChainId);
+    this.winnerLength.set(winnerLength);
+
+    // Emit event for external tracking
+    this.emitEvent('chainReduced', newCounters);
   }
 }
