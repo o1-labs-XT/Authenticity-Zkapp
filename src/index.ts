@@ -31,5 +31,13 @@ export {
 export {
   // Smart contract and types
   AuthenticityZkApp,
-  ImageMintAction,
 } from './AuthenticityZkApp.js';
+
+export {
+  // BatchReducer
+  chainBatchReducer,
+  ChainBatch,
+  ChainBatchProof,
+  BatchReducerUtils,
+  ImageMintAction,
+} from './BatchReducer.js';
