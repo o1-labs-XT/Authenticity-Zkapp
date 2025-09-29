@@ -118,7 +118,7 @@ class AuthenticityZkApp extends TokenContract {
     // Set the on-chain state of the token account
     update.body.update.appState[0] = {
       isSome: Bool(true),
-      value: Field(2), // Token Schema Version 2 (using compression)
+      value: chainId.value, // Chain ID (0-24)
     };
     update.body.update.appState[1] = {
       isSome: Bool(true),

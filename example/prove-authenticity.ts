@@ -295,6 +295,7 @@ console.log(`🪙 Token ID: ${tokenId.toString()}`);
 
 // Check the token account state
 const tokenAccount = Mina.getAccount(tokenOwnerAccount, tokenId);
+const storedChainId = tokenAccount.zkapp?.appState[0];
 const storedHigh128 = tokenAccount.zkapp?.appState[1];
 const storedLow128 = tokenAccount.zkapp?.appState[2];
 
@@ -317,6 +318,9 @@ const { xHigh128, xLow128, yHigh128, yLow128 } =
   expectedCreatorCommitment.toFourFields();
 
 console.log('\n📊 On-chain verification results:');
+console.log(
+  `   Chain ID matches: ${storedChainId?.toString() === '0'}`
+);
 console.log(
   `   Stored high128 matches: ${
     storedHigh128?.toString() === expectedHigh.toString()
