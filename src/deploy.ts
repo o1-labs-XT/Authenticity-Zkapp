@@ -1,5 +1,6 @@
 import { Mina, PrivateKey, AccountUpdate } from 'o1js';
 import { AuthenticityZkApp } from './AuthenticityZkApp.js';
+import { BatchReducerUtils } from './BatchReducer.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -128,6 +129,14 @@ async function deploy() {
     fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
     console.log(`💾 Deployment info saved to ${deploymentFile}\n`);
 
+    // Create zkApp instance first (needed for BatchReducer)
+    const zkApp = new AuthenticityZkApp(zkAppAddress);
+
+    // Set contract instance for BatchReducer before compilation
+    console.log('🔧 Setting up BatchReducer with contract instance...');
+    BatchReducerUtils.setContractInstance(zkApp);
+    console.log('✅ BatchReducer configured\n');
+
     // Import and compile AuthenticityProgram first (dependency)
     console.log('🔨 Compiling AuthenticityProgram (dependency)...');
     const { AuthenticityProgram } = await import('./AuthenticityProof.js');
@@ -139,15 +148,22 @@ async function deploy() {
     ).toFixed(1);
     console.log(`✅ AuthenticityProgram compiled in ${programCompileTime}s\n`);
 
+    // Compile BatchReducer
+    console.log('🔨 Compiling BatchReducer...');
+    const batchReducerCompileStartTime = Date.now();
+    await BatchReducerUtils.compile();
+    const batchReducerCompileTime = (
+      (Date.now() - batchReducerCompileStartTime) /
+      1000
+    ).toFixed(1);
+    console.log(`✅ BatchReducer compiled in ${batchReducerCompileTime}s\n`);
+
     // Compile the contract
     console.log('🔨 Compiling AuthenticityZkApp...');
     const compileStartTime = Date.now();
     await AuthenticityZkApp.compile();
     const compileTime = ((Date.now() - compileStartTime) / 1000).toFixed(1);
     console.log(`✅ Contract compiled in ${compileTime}s\n`);
-
-    // Create zkApp instance
-    const zkApp = new AuthenticityZkApp(zkAppAddress);
 
     // Create deployment transaction
     console.log('📝 Creating deployment transaction...');

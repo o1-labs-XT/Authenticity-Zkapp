@@ -127,4 +127,29 @@ class PackedImageChainCounters {
 
     return total;
   }
+
+  /**
+   * Find the longest chain ID and length (for winner determination in a provable way)
+   * @param field - The packed Field containing all chain lengths
+   * @returns Object with longestChainId and longestChainLength
+   */
+  static findLongestChain(field: Field): { longestChainId: UInt8; longestChainLength: UInt32 } {
+    let longestChainIdField = Field(0);
+    let longestChainLength = UInt32.from(0);
+
+    for (let i = 0; i < this.CHAIN_COUNT; i++) {
+      const chainId = UInt8.from(i);
+      const chainLength = this.getChainLength(field, chainId);
+
+      // Update longest if this chain is longer
+      const isLonger = chainLength.greaterThan(longestChainLength);
+      longestChainIdField = Provable.if(isLonger, Field(i), longestChainIdField);
+      longestChainLength = Provable.if(isLonger, chainLength, longestChainLength);
+    }
+
+    // Convert back to UInt8
+    const longestChainId = UInt8.from(longestChainIdField);
+
+    return { longestChainId, longestChainLength };
+  }
 }
