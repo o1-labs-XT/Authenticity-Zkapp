@@ -53,7 +53,7 @@ class AuthenticityZkApp extends TokenContract {
   @state(UInt32) winnerLength = State<UInt32>();
 
   events = {
-    chainReduced: Field,
+    batchReduced: Field,
   };
 
   // Initialize contract
@@ -167,6 +167,6 @@ class AuthenticityZkApp extends TokenContract {
     this.winnerLength.set(winnerLength);
 
     // Emit event for external tracking
-    this.emitEvent('chainReduced', newCounters);
+    this.emitEvent('batchReduced', newCounters);
   }
 }
