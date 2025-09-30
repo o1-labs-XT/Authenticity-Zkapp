@@ -27,6 +27,8 @@ Mina.setActiveInstance(Local);
 // Create test accounts
 const deployerKey = Local.testAccounts[0].key;
 const deployerAccount = deployerKey.toPublicKey();
+const adminKey = deployerKey; // admin same as deployer for this exmaple
+const adminAccount = deployerAccount;
 const tokenOwnerKey = Local.testAccounts[2].key;
 const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
 const payerKey = Local.testAccounts[3].key;
@@ -166,58 +168,58 @@ const tokenOwner7Account = tokenOwner7Key.toPublicKey();
 
 // Mint 4 images to Chain 0
 console.log('\n   🏆 Minting 4 images to Chain 0...');
-const chain0Txn1 = await Mina.transaction(payerAccount, async () => {
-  AccountUpdate.fundNewAccount(payerAccount);
+const chain0Txn1 = await Mina.transaction(adminAccount, async () => {
+  AccountUpdate.fundNewAccount(adminAccount);
   await zkApp.verifyAndStore(tokenOwnerAccount, UInt8.from(0), proof);
 });
 await chain0Txn1.prove();
-await chain0Txn1.sign([payerKey, tokenOwnerKey]).send();
+await chain0Txn1.sign([adminKey, tokenOwnerKey]).send();
 
-const chain0Txn2 = await Mina.transaction(payerAccount, async () => {
-  AccountUpdate.fundNewAccount(payerAccount);
+const chain0Txn2 = await Mina.transaction(adminAccount, async () => {
+  AccountUpdate.fundNewAccount(adminAccount);
   await zkApp.verifyAndStore(tokenOwner2Account, UInt8.from(0), proof);
 });
 await chain0Txn2.prove();
-await chain0Txn2.sign([payerKey, tokenOwner2Key]).send();
+await chain0Txn2.sign([adminKey, tokenOwner2Key]).send();
 
-const chain0Txn3 = await Mina.transaction(payerAccount, async () => {
-  AccountUpdate.fundNewAccount(payerAccount);
+const chain0Txn3 = await Mina.transaction(adminAccount, async () => {
+  AccountUpdate.fundNewAccount(adminAccount);
   await zkApp.verifyAndStore(tokenOwner3Account, UInt8.from(0), proof);
 });
 await chain0Txn3.prove();
-await chain0Txn3.sign([payerKey, tokenOwner3Key]).send();
+await chain0Txn3.sign([adminKey, tokenOwner3Key]).send();
 
-const chain0Txn4 = await Mina.transaction(payerAccount, async () => {
-  AccountUpdate.fundNewAccount(payerAccount);
+const chain0Txn4 = await Mina.transaction(adminAccount, async () => {
+  AccountUpdate.fundNewAccount(adminAccount);
   await zkApp.verifyAndStore(tokenOwner4Account, UInt8.from(0), proof);
 });
 await chain0Txn4.prove();
-await chain0Txn4.sign([payerKey, tokenOwner4Key]).send();
+await chain0Txn4.sign([adminKey, tokenOwner4Key]).send();
 
 // Mint 2 images to Chain 5
 console.log('   ☕ Minting 2 images to Chain 5...');
-const chain5Txn1 = await Mina.transaction(payerAccount, async () => {
-  AccountUpdate.fundNewAccount(payerAccount);
+const chain5Txn1 = await Mina.transaction(adminAccount, async () => {
+  AccountUpdate.fundNewAccount(adminAccount);
   await zkApp.verifyAndStore(tokenOwner5Account, UInt8.from(5), proof);
 });
 await chain5Txn1.prove();
-await chain5Txn1.sign([payerKey, tokenOwner5Key]).send();
+await chain5Txn1.sign([adminKey, tokenOwner5Key]).send();
 
-const chain5Txn2 = await Mina.transaction(payerAccount, async () => {
-  AccountUpdate.fundNewAccount(payerAccount);
+const chain5Txn2 = await Mina.transaction(adminAccount, async () => {
+  AccountUpdate.fundNewAccount(adminAccount);
   await zkApp.verifyAndStore(tokenOwner6Account, UInt8.from(5), proof);
 });
 await chain5Txn2.prove();
-await chain5Txn2.sign([payerKey, tokenOwner6Key]).send();
+await chain5Txn2.sign([adminKey, tokenOwner6Key]).send();
 
 // Mint 1 image to Chain 24 (test full range)
 console.log('   🔚 Minting 1 image to Chain 24...');
-const chain24Txn = await Mina.transaction(payerAccount, async () => {
-  AccountUpdate.fundNewAccount(payerAccount);
+const chain24Txn = await Mina.transaction(adminAccount, async () => {
+  AccountUpdate.fundNewAccount(adminAccount);
   await zkApp.verifyAndStore(tokenOwner7Account, UInt8.from(24), proof);
 });
 await chain24Txn.prove();
-await chain24Txn.sign([payerKey, tokenOwner7Key]).send();
+await chain24Txn.sign([adminKey, tokenOwner7Key]).send();
 
 console.log('✅ All chain mints completed!\n');
 
@@ -240,13 +242,13 @@ if (batches.length === 0) {
     const { batch, proof } = batches[i];
 
     // Create transaction to process this batch
-    const batchTxn = await Mina.transaction(deployerAccount, async () => {
+    const batchTxn = await Mina.transaction(adminAccount, async () => {
       await zkApp.processBatch(batch, proof);
     });
 
     console.log(`   Proving batch ${i + 1}...`);
     await batchTxn.prove();
-    await batchTxn.sign([deployerKey]).send();
+    await batchTxn.sign([adminKey]).send();
 
     console.log(`   Batch ${i + 1} processed successfully`);
   }

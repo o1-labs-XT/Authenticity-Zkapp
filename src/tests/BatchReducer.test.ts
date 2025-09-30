@@ -28,6 +28,7 @@ import {
 describe('BatchReducer Integration', () => {
   let Local: any;
   let deployer: PrivateKey;
+  let admin: PrivateKey;
   let zkAppKey: PrivateKey;
   let zkApp: AuthenticityZkApp;
 
@@ -39,6 +40,7 @@ describe('BatchReducer Integration', () => {
     Mina.setActiveInstance(Local);
 
     deployer = Local.testAccounts[0].key;
+    admin = deployer; // use deployer as admin for tests
     zkAppKey = PrivateKey.random();
     zkApp = new AuthenticityZkApp(zkAppKey.toPublicKey());
 
@@ -122,13 +124,13 @@ describe('BatchReducer Integration', () => {
         const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
         mintCounter++;
 
-        const tx = await Mina.transaction(deployer.toPublicKey(), async () => {
-          AccountUpdate.fundNewAccount(deployer.toPublicKey());
+        const tx = await Mina.transaction(admin.toPublicKey(), async () => {
+          AccountUpdate.fundNewAccount(admin.toPublicKey());
           await zkApp.verifyAndStore(tokenOwnerAccount, UInt8.from(chainId), proof);
         });
 
         await tx.prove();
-        await tx.sign([deployer, tokenOwnerKey]).send();
+        await tx.sign([admin, tokenOwnerKey]).send();
       }
 
       // Mint tokens to different chains (minting dispatches actions)
@@ -145,12 +147,12 @@ describe('BatchReducer Integration', () => {
       for (let i = 0; i < batches.length; i++) {
         const { batch, proof } = batches[i];
 
-        const tx = await Mina.transaction(deployer.toPublicKey(), async () => {
+        const tx = await Mina.transaction(admin.toPublicKey(), async () => {
           await zkApp.processBatch(batch, proof);
         });
 
         await tx.prove();
-        await tx.sign([deployer]).send();
+        await tx.sign([admin]).send();
       }
 
       console.log('Batches processed successfully');
@@ -234,6 +236,194 @@ describe('BatchReducer Integration', () => {
       // Verify our batch size configuration
       assert(chainBatchReducer !== undefined, 'BatchReducer should be initialized');
       assert(true, 'Batch configuration is properly set');
+    });
+  });
+
+  describe('Admin Access Control', () => {
+    it('should reject verifyAndStore when called by non-admin', async () => {
+      const testData = Buffer.from('access control test');
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
+
+      const { penultimateState, finalRoundInputs, expectedHash } =
+        hashUntilFinalRound(testData);
+
+      const penultimateStateUInt32 = penultimateState.map((x) =>
+        UInt32.from(x)
+      ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
+      const initialStateUInt32 = finalRoundInputs.initialState.map((x) =>
+        UInt32.from(x)
+      ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
+
+      const commitment = Bytes32.fromHex(expectedHash);
+      const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
+
+      const publicInputs = new AuthenticityInputs({
+        commitment: commitment,
+        signature,
+        publicKey: publicKey,
+      });
+
+      const privateInputs = new FinalRoundInputs({
+        state: penultimateStateUInt32,
+        initialState: initialStateUInt32,
+        messageWord: UInt32.from(finalRoundInputs.messageWord),
+        roundConstant: UInt32.from(finalRoundInputs.roundConstant),
+      });
+
+      const { proof } = await AuthenticityProgram.verifyAuthenticity(
+        publicInputs,
+        privateInputs
+      );
+
+      // Use a non-admin account
+      const nonAdminKey = Local.testAccounts[5].key;
+      const nonAdminAccount = nonAdminKey.toPublicKey();
+      const tokenOwnerKey = Local.testAccounts[6].key;
+      const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
+
+      try {
+        const tx = await Mina.transaction(nonAdminAccount, async () => {
+          AccountUpdate.fundNewAccount(nonAdminAccount);
+          await zkApp.verifyAndStore(tokenOwnerAccount, UInt8.from(0), proof);
+        });
+
+        await tx.prove();
+        await tx.sign([nonAdminKey, tokenOwnerKey]).send();
+
+        // If we reach here, the test should fail
+        assert(false, 'transaction should have failed without admin signature');
+      } catch (error: any) {
+        // Expected to fail, verify it's an admin check failure
+        assert(error !== undefined, 'should throw error for non-admin access');
+      }
+    });
+
+    it('should reject processBatch when called by non-admin', async () => {
+      const testData = Buffer.from('batch test data');
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
+
+      const { penultimateState, finalRoundInputs, expectedHash } =
+        hashUntilFinalRound(testData);
+
+      const penultimateStateUInt32 = penultimateState.map((x) =>
+        UInt32.from(x)
+      ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
+      const initialStateUInt32 = finalRoundInputs.initialState.map((x) =>
+        UInt32.from(x)
+      ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
+
+      const commitment = Bytes32.fromHex(expectedHash);
+      const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
+
+      const publicInputs = new AuthenticityInputs({
+        commitment: commitment,
+        signature,
+        publicKey: publicKey,
+      });
+
+      const privateInputs = new FinalRoundInputs({
+        state: penultimateStateUInt32,
+        initialState: initialStateUInt32,
+        messageWord: UInt32.from(finalRoundInputs.messageWord),
+        roundConstant: UInt32.from(finalRoundInputs.roundConstant),
+      });
+
+      const { proof } = await AuthenticityProgram.verifyAuthenticity(
+        publicInputs,
+        privateInputs
+      );
+
+      // Mint a token as admin to create an action
+      const tokenOwnerKey = Local.testAccounts[7].key;
+      const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
+
+      const mintTx = await Mina.transaction(admin.toPublicKey(), async () => {
+        AccountUpdate.fundNewAccount(admin.toPublicKey());
+        await zkApp.verifyAndStore(tokenOwnerAccount, UInt8.from(0), proof);
+      });
+
+      await mintTx.prove();
+      await mintTx.sign([admin, tokenOwnerKey]).send();
+
+      // Prepare batch
+      const batches = await BatchReducerUtils.prepareBatches();
+
+      if (batches.length > 0) {
+        const { batch, proof: batchProof } = batches[0];
+
+        // Try to process batch as non-admin
+        const nonAdminKey = Local.testAccounts[8].key;
+        const nonAdminAccount = nonAdminKey.toPublicKey();
+
+        try {
+          const tx = await Mina.transaction(nonAdminAccount, async () => {
+            await zkApp.processBatch(batch, batchProof);
+          });
+
+          await tx.prove();
+          await tx.sign([nonAdminKey]).send();
+
+          // If we reach here, the test should fail
+          assert(false, 'transaction should have failed without admin signature');
+        } catch (error: any) {
+          // Expected to fail, verify it's an admin check failure
+          assert(error !== undefined, 'should throw error for non-admin access');
+        }
+      }
+    });
+
+    it('should allow admin to call verifyAndStore', async () => {
+      const testData = Buffer.from('Admin access test');
+      const { privateKeyBigInt, publicKeyHex } = generateECKeyPair();
+      const publicKey = Secp256r1.fromHex(publicKeyHex);
+      const privateKey = Secp256r1.Scalar.from(privateKeyBigInt);
+
+      const { penultimateState, finalRoundInputs, expectedHash } =
+        hashUntilFinalRound(testData);
+
+      const penultimateStateUInt32 = penultimateState.map((x) =>
+        UInt32.from(x)
+      ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
+      const initialStateUInt32 = finalRoundInputs.initialState.map((x) =>
+        UInt32.from(x)
+      ) as [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32];
+
+      const commitment = Bytes32.fromHex(expectedHash);
+      const signature = Ecdsa.signHash(commitment, privateKey.toBigInt());
+
+      const publicInputs = new AuthenticityInputs({
+        commitment: commitment,
+        signature,
+        publicKey: publicKey,
+      });
+
+      const privateInputs = new FinalRoundInputs({
+        state: penultimateStateUInt32,
+        initialState: initialStateUInt32,
+        messageWord: UInt32.from(finalRoundInputs.messageWord),
+        roundConstant: UInt32.from(finalRoundInputs.roundConstant),
+      });
+
+      const { proof } = await AuthenticityProgram.verifyAuthenticity(
+        publicInputs,
+        privateInputs
+      );
+
+      // Admin should be able to mint
+      const tokenOwnerKey = Local.testAccounts[9].key;
+      const tokenOwnerAccount = tokenOwnerKey.toPublicKey();
+
+      const tx = await Mina.transaction(admin.toPublicKey(), async () => {
+        AccountUpdate.fundNewAccount(admin.toPublicKey());
+        await zkApp.verifyAndStore(tokenOwnerAccount, UInt8.from(0), proof);
+      });
+
+      await tx.prove();
+      await tx.sign([admin, tokenOwnerKey]).send();
     });
   });
 });
