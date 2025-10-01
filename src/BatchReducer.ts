@@ -67,7 +67,7 @@ export class BatchReducerUtils {
   }
 
   // Prepare batches with retry logic
-  static async prepareBatches(retries: number = 3): Promise<
+  static async prepareBatches(retries = 3): Promise<
     { batch: ChainBatch; proof: ChainBatchProof }[]
   > {
     for (let attempt = 0; attempt < retries; attempt++) {
