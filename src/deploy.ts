@@ -106,6 +106,7 @@ async function deploy() {
       network: string;
       zkAppAddress: string;
       payerAddress: string;
+      adminAddress: string; // admin is set to deployer during init()
       deployedAt: string;
       explorerUrl: string;
       txHash?: string;
@@ -113,6 +114,7 @@ async function deploy() {
       network: networkName,
       zkAppAddress: zkAppAddress.toBase58(),
       payerAddress: payerPublicKey.toBase58(),
+      adminAddress: payerPublicKey.toBase58(),
       deployedAt: new Date().toISOString(),
       explorerUrl: `${network.explorer}/account/${zkAppAddress.toBase58()}`,
     };
@@ -202,6 +204,7 @@ async function deploy() {
 
       console.log('🎉 Deployment complete!');
       console.log(`   zkApp address: ${zkAppAddress.toBase58()}`);
+      console.log(`   Admin address: ${deploymentInfo.adminAddress}`);
       console.log(`   Explorer: ${deploymentInfo.explorerUrl}`);
     } else {
       console.error('❌ Transaction failed:', txnResult);

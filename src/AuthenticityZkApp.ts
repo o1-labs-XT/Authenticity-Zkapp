@@ -41,6 +41,9 @@ export { AuthenticityZkApp };
  *  - Creator's public key
  */
 class AuthenticityZkApp extends TokenContract {
+  // Admin public key for access control
+  @state(PublicKey) admin = State<PublicKey>();
+
   // State for packed chain counters (25 chains × 10 bits each)
   @state(Field) chainCounters = State<Field>();
 
@@ -59,6 +62,8 @@ class AuthenticityZkApp extends TokenContract {
   // Initialize contract
   init() {
     super.init();
+    // Set the deployer as the initial admin
+    this.admin.set(this.sender.getAndRequireSignature());
     this.currentWinner.set(UInt8.from(0));
     this.winnerLength.set(UInt32.from(0));
   }
@@ -75,6 +80,10 @@ class AuthenticityZkApp extends TokenContract {
     chainId: UInt8, // Chain ID (0-24)
     proof: AuthenticityProof,
   ) {
+    // Admin check: Only admin can mint new authenticity tokens
+    const admin = this.admin.getAndRequireEquals();
+    admin.assertEquals(this.sender.getAndRequireSignature());
+
     chainId.assertLessThanOrEqual(UInt8.from(PackedImageChainCounters.CHAIN_COUNT - 1), 'Invalid chain ID, it must be 0-24');
 
     // Verify the provided proof using the AuthenticityProgram
@@ -148,6 +157,10 @@ class AuthenticityZkApp extends TokenContract {
 
   // Process a batch of actions using BatchReducer
   @method async processBatch(batch: ChainBatch, proof: ChainBatchProof) {
+    // Admin check: Only admin can process batches
+    const admin = this.admin.getAndRequireEquals();
+    admin.assertEquals(this.sender.getAndRequireSignature());
+
     // Get current state
     const currentCounters = this.chainCounters.getAndRequireEquals();
 
