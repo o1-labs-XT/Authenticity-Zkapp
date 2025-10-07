@@ -1,6 +1,6 @@
 {
   "name": "authenticity-zkapp",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Zero-knowledge proof system for verifying image authenticity on Mina blockchain",
   "author": "",
   "license": "Apache-2.0",
