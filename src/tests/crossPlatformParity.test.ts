@@ -107,6 +107,17 @@ describe('Cross-Platform Parity Tests', () => {
       assert.ok(crossPlatformKeys.privateKeyBigInt);
       assert.ok(crossPlatformKeys.publicKeyXBigInt);
       assert.ok(crossPlatformKeys.publicKeyYBigInt);
+
+      // Verify P-256 hex string lengths
+      assert.strictEqual(nodeKeys.privateKeyHex.length, 64);
+      assert.strictEqual(nodeKeys.publicKeyXHex.length, 64);
+      assert.strictEqual(nodeKeys.publicKeyYHex.length, 64);
+      assert.strictEqual(nodeKeys.publicKeyHex.length, 130);
+
+      assert.strictEqual(crossPlatformKeys.privateKeyHex.length, 64);
+      assert.strictEqual(crossPlatformKeys.publicKeyXHex.length, 64);
+      assert.strictEqual(crossPlatformKeys.publicKeyYHex.length, 64);
+      assert.strictEqual(crossPlatformKeys.publicKeyHex.length, 130);
     });
   });
 });
