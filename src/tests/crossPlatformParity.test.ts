@@ -82,4 +82,72 @@ describe('Cross-Platform Parity Tests', () => {
       });
     });
   });
+
+  describe('generateECKeypair parity', () => {
+    it('should produce keys with identical structure', async () => {
+      const { generateECKeyPair, Bytes32 } = await import('../helpers/commitmentHelpers.js');
+      const { generateECKeypairCrossPlatform } = await import('../browser.js');
+      const { Secp256r1, Ecdsa } = await import('../AuthenticityProof.js');
+
+      const nodeKeys = generateECKeyPair();
+      const crossPlatformKeys = await generateECKeypairCrossPlatform();
+
+      // Verify both have same field structure
+      assert.ok(nodeKeys.privateKeyHex);
+      assert.ok(nodeKeys.publicKeyXHex);
+      assert.ok(nodeKeys.publicKeyYHex);
+      assert.ok(nodeKeys.publicKeyHex);
+      assert.ok(nodeKeys.privateKeyBigInt);
+      assert.ok(nodeKeys.publicKeyXBigInt);
+      assert.ok(nodeKeys.publicKeyYBigInt);
+
+      assert.ok(crossPlatformKeys.privateKeyHex);
+      assert.ok(crossPlatformKeys.publicKeyXHex);
+      assert.ok(crossPlatformKeys.publicKeyYHex);
+      assert.ok(crossPlatformKeys.publicKeyHex);
+      assert.ok(crossPlatformKeys.privateKeyBigInt);
+      assert.ok(crossPlatformKeys.publicKeyXBigInt);
+      assert.ok(crossPlatformKeys.publicKeyYBigInt);
+
+      // Verify P-256 hex string lengths
+      assert.strictEqual(nodeKeys.privateKeyHex.length, 64);
+      assert.strictEqual(nodeKeys.publicKeyXHex.length, 64);
+      assert.strictEqual(nodeKeys.publicKeyYHex.length, 64);
+      assert.strictEqual(nodeKeys.publicKeyHex.length, 130);
+
+      assert.strictEqual(crossPlatformKeys.privateKeyHex.length, 64);
+      assert.strictEqual(crossPlatformKeys.publicKeyXHex.length, 64);
+      assert.strictEqual(crossPlatformKeys.publicKeyYHex.length, 64);
+      assert.strictEqual(crossPlatformKeys.publicKeyHex.length, 130);
+
+      // Verify uncompressed public key format
+      assert.strictEqual(
+        nodeKeys.publicKeyHex,
+        '04' + nodeKeys.publicKeyXHex + nodeKeys.publicKeyYHex
+      );
+      assert.strictEqual(
+        crossPlatformKeys.publicKeyHex,
+        '04' + crossPlatformKeys.publicKeyXHex + crossPlatformKeys.publicKeyYHex
+      );
+
+      // Verify both work with Secp256r1.fromHex
+      const nodePublicKey = Secp256r1.fromHex(nodeKeys.publicKeyHex);
+      const crossPlatformPublicKey = Secp256r1.fromHex(crossPlatformKeys.publicKeyHex);
+      assert.ok(nodePublicKey);
+      assert.ok(crossPlatformPublicKey);
+
+      // Verify both can sign and verify with Ecdsa
+      const testMessage = Bytes32.fromHex('a'.repeat(64));
+
+      const nodeSignature = Ecdsa.signHash(testMessage, nodeKeys.privateKeyBigInt);
+      const nodeVerified = nodeSignature.verifySignedHash(testMessage, nodePublicKey);
+      assert.ok(nodeVerified);
+
+      const crossPlatformSignature = Ecdsa.signHash(testMessage, crossPlatformKeys.privateKeyBigInt);
+      const crossPlatformVerified = crossPlatformSignature.verifySignedHash(testMessage, crossPlatformPublicKey);
+      assert.ok(crossPlatformVerified);
+
+      console.log('✓ generateECKeypair: Both implementations produce compatible P-256 keys');
+    });
+  });
 });

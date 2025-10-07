@@ -52,7 +52,65 @@ async function computeOnChainCommitmentCrossPlatform(imageData: Uint8Array) {
   };
 }
 
+/**
+ * Browser-safe ECDSA keypair generation using Web Crypto API
+ */
+async function generateECKeypairCrossPlatform(): Promise<{
+  privateKeyHex: string;
+  publicKeyXHex: string;
+  publicKeyYHex: string;
+  publicKeyHex: string;
+  privateKeyBigInt: bigint;
+  publicKeyXBigInt: bigint;
+  publicKeyYBigInt: bigint;
+}> {
+  if (typeof globalThis.crypto === 'undefined' || !globalThis.crypto.subtle) {
+    throw new Error('Web Crypto API not available');
+  }
+
+  const keyPair = await globalThis.crypto.subtle.generateKey(
+    {
+      name: 'ECDSA',
+      namedCurve: 'P-256',
+    },
+    true,
+    ['sign', 'verify']
+  );
+
+  const privateKeyJWK = await globalThis.crypto.subtle.exportKey('jwk', keyPair.privateKey);
+  const publicKeyJWK = await globalThis.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+
+  const base64urlToHex = (base64url: string | undefined): string => {
+    if (!base64url) throw new Error('Base64 URL string is undefined');
+    let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  };
+
+  const privateKeyHex = base64urlToHex(privateKeyJWK.d);
+  const publicKeyXHex = base64urlToHex(publicKeyJWK.x);
+  const publicKeyYHex = base64urlToHex(publicKeyJWK.y);
+
+  return {
+    privateKeyHex,
+    publicKeyXHex,
+    publicKeyYHex,
+    publicKeyHex: '04' + publicKeyXHex + publicKeyYHex,
+    privateKeyBigInt: BigInt('0x' + privateKeyHex),
+    publicKeyXBigInt: BigInt('0x' + publicKeyXHex),
+    publicKeyYBigInt: BigInt('0x' + publicKeyYHex),
+  };
+}
+
 export {
   hashImageOffCircuitCrossPlatform,
   computeOnChainCommitmentCrossPlatform,
+  generateECKeypairCrossPlatform,
 };
