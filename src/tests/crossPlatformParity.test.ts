@@ -85,9 +85,9 @@ describe('Cross-Platform Parity Tests', () => {
 
   describe('generateECKeypair parity', () => {
     it('should produce keys with identical structure', async () => {
-      const { generateECKeyPair } = await import('../helpers/commitmentHelpers.js');
+      const { generateECKeyPair, Bytes32 } = await import('../helpers/commitmentHelpers.js');
       const { generateECKeypairCrossPlatform } = await import('../browser.js');
-      const { Secp256r1, Ecdsa, Bytes32 } = await import('../AuthenticityProof.js');
+      const { Secp256r1, Ecdsa } = await import('../AuthenticityProof.js');
 
       const nodeKeys = generateECKeyPair();
       const crossPlatformKeys = await generateECKeypairCrossPlatform();
