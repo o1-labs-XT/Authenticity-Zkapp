@@ -63,6 +63,19 @@ async function generateECKeypairCrossPlatform(): Promise<{
   publicKeyXBigInt: bigint;
   publicKeyYBigInt: bigint;
 }> {
+  if (typeof globalThis.crypto === 'undefined' || !globalThis.crypto.subtle) {
+    throw new Error('Web Crypto API not available');
+  }
+
+  const keyPair = await globalThis.crypto.subtle.generateKey(
+    {
+      name: 'ECDSA',
+      namedCurve: 'P-256',
+    },
+    true,
+    ['sign', 'verify']
+  );
+
   throw new Error('Not implemented');
 }
 
