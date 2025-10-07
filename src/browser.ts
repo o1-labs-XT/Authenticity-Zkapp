@@ -110,4 +110,5 @@ async function generateECKeypairCrossPlatform(): Promise<{
 export {
   hashImageOffCircuitCrossPlatform,
   computeOnChainCommitmentCrossPlatform,
+  generateECKeypairCrossPlatform,
 };
