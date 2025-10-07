@@ -52,6 +52,20 @@ async function computeOnChainCommitmentCrossPlatform(imageData: Uint8Array) {
   };
 }
 
+/**
+ * Browser-safe ECDSA keypair generation using Web Crypto API
+ */
+async function generateECKeypairCrossPlatform(): Promise<{
+  privateKeyHex: string;
+  publicKeyXHex: string;
+  publicKeyYHex: string;
+  privateKeyBigInt: bigint;
+  publicKeyXBigInt: bigint;
+  publicKeyYBigInt: bigint;
+}> {
+  throw new Error('Not implemented');
+}
+
 export {
   hashImageOffCircuitCrossPlatform,
   computeOnChainCommitmentCrossPlatform,
