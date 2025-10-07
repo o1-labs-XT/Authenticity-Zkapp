@@ -26,6 +26,7 @@ export {
   // Cross-platform versions for browser compatibility
   hashImageOffCircuitCrossPlatform,
   computeOnChainCommitmentCrossPlatform,
+  generateECKeypairCrossPlatform,
 } from './browser.js';
 
 export {
