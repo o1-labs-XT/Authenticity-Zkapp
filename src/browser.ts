@@ -79,6 +79,20 @@ async function generateECKeypairCrossPlatform(): Promise<{
   const privateKeyJWK = await globalThis.crypto.subtle.exportKey('jwk', keyPair.privateKey);
   const publicKeyJWK = await globalThis.crypto.subtle.exportKey('jwk', keyPair.publicKey);
 
+  const base64urlToHex = (base64url: string | undefined): string => {
+    if (!base64url) throw new Error('Base64 URL string is undefined');
+    let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  };
+
   throw new Error('Not implemented');
 }
 
