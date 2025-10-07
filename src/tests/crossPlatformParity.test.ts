@@ -118,6 +118,16 @@ describe('Cross-Platform Parity Tests', () => {
       assert.strictEqual(crossPlatformKeys.publicKeyXHex.length, 64);
       assert.strictEqual(crossPlatformKeys.publicKeyYHex.length, 64);
       assert.strictEqual(crossPlatformKeys.publicKeyHex.length, 130);
+
+      // Verify uncompressed public key format
+      assert.strictEqual(
+        nodeKeys.publicKeyHex,
+        '04' + nodeKeys.publicKeyXHex + nodeKeys.publicKeyYHex
+      );
+      assert.strictEqual(
+        crossPlatformKeys.publicKeyHex,
+        '04' + crossPlatformKeys.publicKeyXHex + crossPlatformKeys.publicKeyYHex
+      );
     });
   });
 });
