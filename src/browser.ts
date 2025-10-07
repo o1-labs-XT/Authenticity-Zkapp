@@ -76,6 +76,9 @@ async function generateECKeypairCrossPlatform(): Promise<{
     ['sign', 'verify']
   );
 
+  const privateKeyJWK = await globalThis.crypto.subtle.exportKey('jwk', keyPair.privateKey);
+  const publicKeyJWK = await globalThis.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+
   throw new Error('Not implemented');
 }
 
