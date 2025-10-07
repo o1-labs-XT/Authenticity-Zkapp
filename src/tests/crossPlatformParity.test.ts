@@ -87,6 +87,7 @@ describe('Cross-Platform Parity Tests', () => {
     it('should produce keys with identical structure', async () => {
       const { generateECKeyPair } = await import('../helpers/commitmentHelpers.js');
       const { generateECKeypairCrossPlatform } = await import('../browser.js');
+      const { Secp256r1 } = await import('../AuthenticityProof.js');
 
       const nodeKeys = generateECKeyPair();
       const crossPlatformKeys = await generateECKeypairCrossPlatform();
@@ -128,6 +129,12 @@ describe('Cross-Platform Parity Tests', () => {
         crossPlatformKeys.publicKeyHex,
         '04' + crossPlatformKeys.publicKeyXHex + crossPlatformKeys.publicKeyYHex
       );
+
+      // Verify both work with Secp256r1.fromHex
+      const nodePublicKey = Secp256r1.fromHex(nodeKeys.publicKeyHex);
+      const crossPlatformPublicKey = Secp256r1.fromHex(crossPlatformKeys.publicKeyHex);
+      assert.ok(nodePublicKey);
+      assert.ok(crossPlatformPublicKey);
     });
   });
 });
