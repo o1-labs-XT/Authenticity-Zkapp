@@ -59,6 +59,7 @@ async function generateECKeypairCrossPlatform(): Promise<{
   privateKeyHex: string;
   publicKeyXHex: string;
   publicKeyYHex: string;
+  publicKeyHex: string;
   privateKeyBigInt: bigint;
   publicKeyXBigInt: bigint;
   publicKeyYBigInt: bigint;
@@ -101,6 +102,7 @@ async function generateECKeypairCrossPlatform(): Promise<{
     privateKeyHex,
     publicKeyXHex,
     publicKeyYHex,
+    publicKeyHex: '04' + publicKeyXHex + publicKeyYHex,
     privateKeyBigInt: BigInt('0x' + privateKeyHex),
     publicKeyXBigInt: BigInt('0x' + publicKeyXHex),
     publicKeyYBigInt: BigInt('0x' + publicKeyYHex),
