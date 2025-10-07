@@ -82,4 +82,31 @@ describe('Cross-Platform Parity Tests', () => {
       });
     });
   });
+
+  describe('generateECKeypair parity', () => {
+    it('should produce keys with identical structure', async () => {
+      const { generateECKeyPair } = await import('../helpers/commitmentHelpers.js');
+      const { generateECKeypairCrossPlatform } = await import('../browser.js');
+
+      const nodeKeys = generateECKeyPair();
+      const crossPlatformKeys = await generateECKeypairCrossPlatform();
+
+      // Verify both have same field structure
+      assert.ok(nodeKeys.privateKeyHex);
+      assert.ok(nodeKeys.publicKeyXHex);
+      assert.ok(nodeKeys.publicKeyYHex);
+      assert.ok(nodeKeys.publicKeyHex);
+      assert.ok(nodeKeys.privateKeyBigInt);
+      assert.ok(nodeKeys.publicKeyXBigInt);
+      assert.ok(nodeKeys.publicKeyYBigInt);
+
+      assert.ok(crossPlatformKeys.privateKeyHex);
+      assert.ok(crossPlatformKeys.publicKeyXHex);
+      assert.ok(crossPlatformKeys.publicKeyYHex);
+      assert.ok(crossPlatformKeys.publicKeyHex);
+      assert.ok(crossPlatformKeys.privateKeyBigInt);
+      assert.ok(crossPlatformKeys.publicKeyXBigInt);
+      assert.ok(crossPlatformKeys.publicKeyYBigInt);
+    });
+  });
 });
