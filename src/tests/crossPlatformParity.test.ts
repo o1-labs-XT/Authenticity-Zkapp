@@ -87,7 +87,7 @@ describe('Cross-Platform Parity Tests', () => {
     it('should produce keys with identical structure', async () => {
       const { generateECKeyPair } = await import('../helpers/commitmentHelpers.js');
       const { generateECKeypairCrossPlatform } = await import('../browser.js');
-      const { Secp256r1 } = await import('../AuthenticityProof.js');
+      const { Secp256r1, Ecdsa, Bytes32 } = await import('../AuthenticityProof.js');
 
       const nodeKeys = generateECKeyPair();
       const crossPlatformKeys = await generateECKeypairCrossPlatform();
@@ -135,6 +135,19 @@ describe('Cross-Platform Parity Tests', () => {
       const crossPlatformPublicKey = Secp256r1.fromHex(crossPlatformKeys.publicKeyHex);
       assert.ok(nodePublicKey);
       assert.ok(crossPlatformPublicKey);
+
+      // Verify both can sign and verify with Ecdsa
+      const testMessage = Bytes32.fromHex('a'.repeat(64));
+
+      const nodeSignature = Ecdsa.signHash(testMessage, nodeKeys.privateKeyBigInt);
+      const nodeVerified = nodeSignature.verifySignedHash(testMessage, nodePublicKey);
+      assert.ok(nodeVerified);
+
+      const crossPlatformSignature = Ecdsa.signHash(testMessage, crossPlatformKeys.privateKeyBigInt);
+      const crossPlatformVerified = crossPlatformSignature.verifySignedHash(testMessage, crossPlatformPublicKey);
+      assert.ok(crossPlatformVerified);
+
+      console.log('✓ generateECKeypair: Both implementations produce compatible P-256 keys');
     });
   });
 });
