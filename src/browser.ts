@@ -93,7 +93,18 @@ async function generateECKeypairCrossPlatform(): Promise<{
       .join('');
   };
 
-  throw new Error('Not implemented');
+  const privateKeyHex = base64urlToHex(privateKeyJWK.d);
+  const publicKeyXHex = base64urlToHex(publicKeyJWK.x);
+  const publicKeyYHex = base64urlToHex(publicKeyJWK.y);
+
+  return {
+    privateKeyHex,
+    publicKeyXHex,
+    publicKeyYHex,
+    privateKeyBigInt: BigInt('0x' + privateKeyHex),
+    publicKeyXBigInt: BigInt('0x' + publicKeyXHex),
+    publicKeyYBigInt: BigInt('0x' + publicKeyYHex),
+  };
 }
 
 export {
