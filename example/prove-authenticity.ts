@@ -7,12 +7,10 @@ import {
   PackedImageChainCounters,
   SHACommitment,
   hashImageOffCircuit,
-  computeOnChainCommitment,
   generateECKeyPair,
   Ecdsa,
   Secp256r1,
   Secp256r1Commitment,
-  BatchReducerUtils,
 } from '../src/index.js';
 import { PrivateKey, Mina, AccountUpdate, UInt8, Field } from 'o1js';
 import fs from 'fs';
@@ -109,20 +107,6 @@ console.log('7️⃣ Deploying AuthenticityZkApp contract...');
 const zkAppKey = PrivateKey.random();
 const zkApp = new AuthenticityZkApp(zkAppKey.toPublicKey());
 
-// Set contract instance before any compilation
-BatchReducerUtils.setContractInstance(zkApp);
-
-// Compile dependencies first
-console.log('   Compiling BatchReducer...');
-const reducerCompileStart = Date.now();
-await BatchReducerUtils.compile();
-console.log(
-  `   BatchReducer compiled in ${(
-    (Date.now() - reducerCompileStart) /
-    1000
-  ).toFixed(1)}s`
-);
-
 // Compile the contract
 console.log('   Compiling contract...');
 const contractStartTime = Date.now();
@@ -141,11 +125,6 @@ const deployTxn = await Mina.transaction(deployerAccount, async () => {
 await deployTxn.prove();
 await deployTxn.sign([deployerKey, zkAppKey]).send();
 console.log('Contract deployed with initialized chain counters\n');
-
-// Set up BatchReducer contract instance
-console.log('🔧 Setting up BatchReducer with contract instance...');
-BatchReducerUtils.setContractInstance(zkApp);
-console.log('BatchReducer configured successfully\n');
 
 // Step 8: Verify and store image metadata on-chain
 console.log(
