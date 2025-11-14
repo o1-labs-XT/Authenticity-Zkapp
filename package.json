@@ -1,6 +1,6 @@
 {
   "name": "authenticity-zkapp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Zero-knowledge proof system for verifying image authenticity on Mina blockchain",
   "author": "",
   "license": "Apache-2.0",
@@ -40,7 +40,6 @@
     "testw": "npm run build && find build/src -name '*.test.js' -exec node --test --watch {} \\;",
     "lint": "npx eslint src/* --fix",
     "clear-cache": "npx rimraf cache/* !cache/README.md && npx rimraf cache.json && echo \"Cache cleared successfully!\"",
-    "prepublishOnly": "npm run build && npm run test",
     "deploy:devnet": "npm run build && node build/src/deploy.js devnet",
     "deploy:mainnet": "npm run build && node build/src/deploy.js mainnet",
     "deploy:zeko": "npm run build && node build/src/deploy.js zeko"
@@ -57,7 +56,7 @@
     "typescript": "^5.4.5"
   },
   "peerDependencies": {
-    "o1js": "2.10"
+    "o1js": "2.11"
   },
   "engines": {
     "node": ">=18.14.0"

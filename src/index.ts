@@ -19,7 +19,7 @@ export {
   generateECKeyPair,
   SHACommitment,
   Secp256r1Commitment,
-  PackedImageChainCounters
+  PackedImageChainCounters,
 } from './helpers/index.js';
 
 export {
@@ -33,12 +33,3 @@ export {
   // Smart contract and types
   AuthenticityZkApp,
 } from './AuthenticityZkApp.js';
-
-export {
-  // BatchReducer
-  chainBatchReducer,
-  ChainBatch,
-  ChainBatchProof,
-  BatchReducerUtils,
-  ImageMintAction,
-} from './BatchReducer.js';

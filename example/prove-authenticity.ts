@@ -7,12 +7,10 @@ import {
   PackedImageChainCounters,
   SHACommitment,
   hashImageOffCircuit,
-  computeOnChainCommitment,
   generateECKeyPair,
   Ecdsa,
   Secp256r1,
   Secp256r1Commitment,
-  BatchReducerUtils,
 } from '../src/index.js';
 import { PrivateKey, Mina, AccountUpdate, UInt8, Field } from 'o1js';
 import fs from 'fs';
@@ -109,17 +107,6 @@ console.log('7️⃣ Deploying AuthenticityZkApp contract...');
 const zkAppKey = PrivateKey.random();
 const zkApp = new AuthenticityZkApp(zkAppKey.toPublicKey());
 
-// Set contract instance before any compilation
-BatchReducerUtils.setContractInstance(zkApp);
-
-// Compile dependencies first
-console.log('   Compiling BatchReducer...');
-const reducerCompileStart = Date.now();
-await BatchReducerUtils.compile();
-console.log(
-  `   BatchReducer compiled in ${((Date.now() - reducerCompileStart) / 1000).toFixed(1)}s`
-);
-
 // Compile the contract
 console.log('   Compiling contract...');
 const contractStartTime = Date.now();
@@ -139,18 +126,19 @@ await deployTxn.prove();
 await deployTxn.sign([deployerKey, zkAppKey]).send();
 console.log('Contract deployed with initialized chain counters\n');
 
-// Set up BatchReducer contract instance
-console.log('🔧 Setting up BatchReducer with contract instance...');
-BatchReducerUtils.setContractInstance(zkApp);
-console.log('BatchReducer configured successfully\n');
-
 // Step 8: Verify and store image metadata on-chain
-console.log('8️⃣ Storing image authenticity on-chain with multiple image chains...');
+console.log(
+  '8️⃣ Storing image authenticity on-chain with multiple image chains...'
+);
 
 // Show initial chain state
 console.log('\n   📊 Initial Chain State:');
-const initialTotalCount = PackedImageChainCounters.getTotalImageCount(zkApp.chainCounters.getAndRequireEquals());
-console.log(`   Total images across all chains: ${Number(initialTotalCount.toBigint())}`);
+const initialTotalCount = PackedImageChainCounters.getTotalImageCount(
+  zkApp.chainCounters.getAndRequireEquals()
+);
+console.log(
+  `   Total images across all chains: ${Number(initialTotalCount.toBigint())}`
+);
 
 // Create additional unique token owners for each mint
 const tokenOwner2Key = Local.testAccounts[4].key;
@@ -226,36 +214,6 @@ console.log('✅ All chain mints completed!\n');
 // Step 9: Process actions with BatchReducer
 console.log('9️⃣ Processing actions with BatchReducer...');
 
-// Prepare batches from pending actions
-console.log('   Preparing batches from pending actions...');
-const batches = await BatchReducerUtils.prepareBatches();
-
-if (batches.length === 0) {
-  console.log('   No pending actions to process');
-} else {
-  console.log(`   Found ${batches.length} batch(es) to process`);
-
-  // Process each batch
-  for (let i = 0; i < batches.length; i++) {
-    console.log(`   Processing batch ${i + 1}/${batches.length}...`);
-
-    const { batch, proof } = batches[i];
-
-    // Create transaction to process this batch
-    const batchTxn = await Mina.transaction(adminAccount, async () => {
-      await zkApp.processBatch(batch, proof);
-    });
-
-    console.log(`   Proving batch ${i + 1}...`);
-    await batchTxn.prove();
-    await batchTxn.sign([adminKey]).send();
-
-    console.log(`   Batch ${i + 1} processed successfully`);
-  }
-}
-
-console.log('\nAll batches processed successfully!\n');
-
 // Get final state from contract
 const finalChainCounters = zkApp.chainCounters.getAndRequireEquals();
 const winnerChainId = zkApp.currentWinner.getAndRequireEquals();
@@ -263,13 +221,28 @@ const winnerLength = zkApp.winnerLength.getAndRequireEquals();
 
 // Display chain counter data after batch processing
 console.log('Chain Counter Data (After Batch Processing):');
-const finalTotalCount = PackedImageChainCounters.getTotalImageCount(finalChainCounters);
-const chain0Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(0));
-const chain5Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(5));
-const chain24Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(24));
-const chain2Count = PackedImageChainCounters.getChainLength(finalChainCounters, UInt8.from(2)); // Should be 0
+const finalTotalCount =
+  PackedImageChainCounters.getTotalImageCount(finalChainCounters);
+const chain0Count = PackedImageChainCounters.getChainLength(
+  finalChainCounters,
+  UInt8.from(0)
+);
+const chain5Count = PackedImageChainCounters.getChainLength(
+  finalChainCounters,
+  UInt8.from(5)
+);
+const chain24Count = PackedImageChainCounters.getChainLength(
+  finalChainCounters,
+  UInt8.from(24)
+);
+const chain2Count = PackedImageChainCounters.getChainLength(
+  finalChainCounters,
+  UInt8.from(2)
+); // Should be 0
 
-console.log(`   Total images across all chains: ${Number(finalTotalCount.toBigint())}`);
+console.log(
+  `   Total images across all chains: ${Number(finalTotalCount.toBigint())}`
+);
 console.log(`   Chain 0 count: ${Number(chain0Count.toBigint())}`);
 console.log(`   Chain 5 count: ${Number(chain5Count.toBigint())}`);
 console.log(`   Chain 24 count: ${Number(chain24Count.toBigint())}`);
@@ -280,13 +253,17 @@ console.log('\n🏆 Winner determined by BatchReducer in-circuit...');
 const longestChainId = Number(winnerChainId.toBigInt());
 const longestChainLength = Number(winnerLength.toBigint());
 
-console.log(`   Longest chain: Chain ${longestChainId} with ${longestChainLength} images`);
+console.log(
+  `   Longest chain: Chain ${longestChainId} with ${longestChainLength} images`
+);
 console.log(`   Winner determined: Chain ${longestChainId}`);
 
 console.log('\n📋 Final Summary:');
 console.log(`   Total actions processed: 7`);
 console.log(`   Chains used: 0, 5, 24`);
-console.log(`   Winner: Chain ${longestChainId} with ${longestChainLength} images`);
+console.log(
+  `   Winner: Chain ${longestChainId} with ${longestChainLength} images`
+);
 
 // Step 10: Verify the on-chain data
 console.log('\n🔟 Verifying on-chain data...');
@@ -320,9 +297,7 @@ const { xHigh128, xLow128, yHigh128, yLow128 } =
   expectedCreatorCommitment.toFourFields();
 
 console.log('\n📊 On-chain verification results:');
-console.log(
-  `   Chain ID matches: ${storedChainId?.toString() === '0'}`
-);
+console.log(`   Chain ID matches: ${storedChainId?.toString() === '0'}`);
 console.log(
   `   Stored high128 matches: ${
     storedHigh128?.toString() === expectedHigh.toString()
@@ -366,7 +341,6 @@ if (storedHigh128 && storedLow128) {
   console.log(`   Matches: ${reconstructedCommitment.toHex() === imageHash}`);
 }
 
-
 console.log('\n🎉 Example completed successfully!');
 console.log('\nSummary:');
 console.log(`- Image: ${imagePath} (${imageData.length} bytes)`);
@@ -377,4 +351,9 @@ console.log(`- Chain 0: ${Number(chain0Count.toBigint())} images`);
 console.log(`- Chain 5: ${Number(chain5Count.toBigint())} images`);
 console.log(`- Chain 24: ${Number(chain24Count.toBigint())} images`);
 console.log(`- Token ID: Single shared tokenId (${tokenId.toString()})`);
-console.log(`- Storage efficiency: ${(PackedImageChainCounters.TOTAL_BITS/254*100).toFixed(1)}% (${PackedImageChainCounters.TOTAL_BITS}/254 bits)`);
+console.log(
+  `- Storage efficiency: ${(
+    (PackedImageChainCounters.TOTAL_BITS / 254) *
+    100
+  ).toFixed(1)}% (${PackedImageChainCounters.TOTAL_BITS}/254 bits)`
+);
