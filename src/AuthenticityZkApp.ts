@@ -67,10 +67,6 @@ class AuthenticityZkApp extends TokenContract {
     chainId: UInt8, // Chain ID (0-24)
     proof: AuthenticityProof
   ) {
-    // Admin check: Only admin can mint new authenticity tokens
-    const admin = this.admin.getAndRequireEquals();
-    admin.assertEquals(this.sender.getAndRequireSignature());
-
     chainId.assertLessThanOrEqual(
       UInt8.from(PackedImageChainCounters.CHAIN_COUNT - 1),
       'Invalid chain ID, it must be 0-24'

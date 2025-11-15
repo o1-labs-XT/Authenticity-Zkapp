@@ -184,27 +184,27 @@ const chain0Txn4 = await Mina.transaction(adminAccount, async () => {
 await chain0Txn4.prove();
 await chain0Txn4.sign([adminKey, tokenOwner4Key]).send();
 
-// Mint 2 images to Chain 5
-console.log('   ☕ Minting 2 images to Chain 5...');
+// Mint 2 images to Chain 3
+console.log('   ☕ Minting 2 images to Chain 3...');
 const chain5Txn1 = await Mina.transaction(adminAccount, async () => {
   AccountUpdate.fundNewAccount(adminAccount);
-  await zkApp.verifyAndStore(tokenOwner5Account, UInt8.from(5), proof);
+  await zkApp.verifyAndStore(tokenOwner5Account, UInt8.from(3), proof);
 });
 await chain5Txn1.prove();
 await chain5Txn1.sign([adminKey, tokenOwner5Key]).send();
 
 const chain5Txn2 = await Mina.transaction(adminAccount, async () => {
   AccountUpdate.fundNewAccount(adminAccount);
-  await zkApp.verifyAndStore(tokenOwner6Account, UInt8.from(5), proof);
+  await zkApp.verifyAndStore(tokenOwner6Account, UInt8.from(3), proof);
 });
 await chain5Txn2.prove();
 await chain5Txn2.sign([adminKey, tokenOwner6Key]).send();
 
-// Mint 1 image to Chain 24 (test full range)
-console.log('   🔚 Minting 1 image to Chain 24...');
+// Mint 1 image to Chain 4 (test full range)
+console.log('   🔚 Minting 1 image to Chain 4...');
 const chain24Txn = await Mina.transaction(adminAccount, async () => {
   AccountUpdate.fundNewAccount(adminAccount);
-  await zkApp.verifyAndStore(tokenOwner7Account, UInt8.from(24), proof);
+  await zkApp.verifyAndStore(tokenOwner7Account, UInt8.from(4), proof);
 });
 await chain24Txn.prove();
 await chain24Txn.sign([adminKey, tokenOwner7Key]).send();
@@ -227,13 +227,13 @@ const chain0Count = PackedImageChainCounters.getChainLength(
   finalChainCounters,
   UInt8.from(0)
 );
-const chain5Count = PackedImageChainCounters.getChainLength(
+const chain3Count = PackedImageChainCounters.getChainLength(
   finalChainCounters,
-  UInt8.from(5)
+  UInt8.from(3)
 );
-const chain24Count = PackedImageChainCounters.getChainLength(
+const chain4Count = PackedImageChainCounters.getChainLength(
   finalChainCounters,
-  UInt8.from(24)
+  UInt8.from(4)
 );
 const chain2Count = PackedImageChainCounters.getChainLength(
   finalChainCounters,
@@ -244,8 +244,8 @@ console.log(
   `   Total images across all chains: ${Number(finalTotalCount.toBigint())}`
 );
 console.log(`   Chain 0 count: ${Number(chain0Count.toBigint())}`);
-console.log(`   Chain 5 count: ${Number(chain5Count.toBigint())}`);
-console.log(`   Chain 24 count: ${Number(chain24Count.toBigint())}`);
+console.log(`   Chain 5 count: ${Number(chain3Count.toBigint())}`);
+console.log(`   Chain 24 count: ${Number(chain4Count.toBigint())}`);
 console.log(`   Chain 2 count (unused): ${Number(chain2Count.toBigint())}`);
 
 // Get winner from contract state (computed in-circuit during batch processing)
@@ -348,8 +348,8 @@ console.log(`- SHA-256: ${imageHash}`);
 console.log(`- Created by: ${creatorKey.toBigInt()}`);
 console.log(`- Total images minted: ${Number(finalTotalCount.toBigint())}`);
 console.log(`- Chain 0: ${Number(chain0Count.toBigint())} images`);
-console.log(`- Chain 5: ${Number(chain5Count.toBigint())} images`);
-console.log(`- Chain 24: ${Number(chain24Count.toBigint())} images`);
+console.log(`- Chain 5: ${Number(chain3Count.toBigint())} images`);
+console.log(`- Chain 24: ${Number(chain4Count.toBigint())} images`);
 console.log(`- Token ID: Single shared tokenId (${tokenId.toString()})`);
 console.log(
   `- Storage efficiency: ${(
