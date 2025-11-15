@@ -42,7 +42,7 @@
     "clear-cache": "npx rimraf cache/* !cache/README.md && npx rimraf cache.json && echo \"Cache cleared successfully!\"",
     "deploy:devnet": "npm run build && node build/src/deploy.js devnet",
     "deploy:mainnet": "npm run build && node build/src/deploy.js mainnet",
-    "deploy:zeko": "npm run build && node build/src/deploy.js zeko"
+    "archive_example": "npm run build && node build/example/query-events-and-actions.js"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.4",
